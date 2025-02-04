@@ -1,8 +1,9 @@
 {
-    "parsing_date": "2024-11-02",
+    "parsing_date": "2025-02-03",
     "html_hash": "8d4a80173c700b37",
     "Case Metadata": {
-        "county": "hays"
+        "county": "hays",
+        "cause_number": "CR-17-5152-C"
     },
     "Defendant Information": {
         "appointed_or_retained": "Court Appointed",
@@ -27,28 +28,7 @@
         "earliest_charge_date": "2015-10-25",
         "has_evidence_of_representation": false
     },
-    "Disposition_Information": [
-        {
-            "date": "12/06/2016",
-            "event": "Disposition",
-            "details": [
-                {
-                    "charge": "1. AGGRAVATED ASSAULT WITH A DEADLY WEAPON",
-                    "outcome": "Deferred Adjudication"
-                }
-            ]
-        },
-        {
-            "date": "11/04/2019",
-            "event": "Amended Disposition",
-            "details": [
-                {
-                    "charge": "1. AGGRAVATED ASSAULT WITH A DEADLY WEAPON",
-                    "outcome": "Amend Probation"
-                }
-            ]
-        }
-    ],
+    "Disposition_Information": null,
     "Good Motions": [],
     "cause_number_redacted": "871239500b7fe2fd"
 }

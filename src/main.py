@@ -5,7 +5,7 @@ import logging
 import shutil
 from datetime import datetime
 
-# Import all of the programs modules within the parent_dir
+# Import all of the programs modules
 import scraper
 import parser
 import cleaner
@@ -32,7 +32,7 @@ class Orchestrator:
         # Set up basic configuration for the logging system
         logging.basicConfig(level=logging.INFO)
 
-        orchestrator_log_path = os.path.join(os.path.dirname(__file__), "..", "..", "logs")
+        orchestrator_log_path = os.path.join(os.path.dirname(__file__), "..", "logs")
         now = datetime.now()
         # Format it as "DD-MM-YYYY - HH:MM"
         formatted_date_time = now.strftime("%d-%m-%Y-%H.%M")
@@ -47,13 +47,13 @@ class Orchestrator:
 
     def create_logs_folder(self):
         # Define the root folder
-        logs_folder = os.path.join(os.path.dirname(__file__), "..", "..", "logs")
+        logs_folder = os.path.join(os.path.dirname(__file__), "..", "logs")
         if not os.path.exists(logs_folder):
             os.makedirs(logs_folder)
 
     def file_reset(self, county):
         # Define the root folder and subfolders
-        root_folder = os.path.join(os.path.dirname(__file__), "..", "..", "data", county)
+        root_folder = os.path.join(os.path.dirname(__file__), "..", "data", county)
         subfolders = ['case_html', 'case_json', 'case_json_cleaned']
 
         # Loop through each subfolder and remove all files
