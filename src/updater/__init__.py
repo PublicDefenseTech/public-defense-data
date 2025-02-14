@@ -66,53 +66,69 @@ class Updater():
     def create_tables(self, cursor):
         queries = [
             """
-            CREATE TABLE IF NOT EXISTS cases (
+            CREATE TABLE IF NOT EXISTS parse_metadata (
                 id SERIAL PRIMARY KEY,
-                cause_number TEXT UNIQUE,
-                version INTEGER,
-                date_parsed DATE,
-                odyssey_id TEXT,
-                county TEXT,
-                name TEXT,
-                case_type TEXT,
-                date_filed DATE,
-                location TEXT
+                parsing_date DATE,
+                html_hash TEXT,
+                cause_number_hashed TEXT
             )""",
             """
-            CREATE TABLE IF NOT EXISTS related_cases (
+            CREATE TABLE IF NOT EXISTS case_metadata (
                 id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id),
-                related_case TEXT
+                county TEXT,
+                cause_number TEXT UNIQUE,
+                earliest_charge_date DATE,
+                has_evidence_of_representation BOOLEAN
             )""",
             """
             CREATE TABLE IF NOT EXISTS defendants (
                 id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id),
+                case_id INTEGER REFERENCES case_metadata(id),
                 name TEXT,
                 sex TEXT,
                 race TEXT,
                 date_of_birth TEXT,
                 height TEXT,
                 weight TEXT,
-                defense_attorney TEXT,
+                address TEXT
+            )""",
+            """
+            CREATE TABLE IF NOT EXISTS defense_attorneys (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES case_metadata(id),
+                name TEXT,
+                phone TEXT,
+                sid TEXT,
                 appointed_retained TEXT,
-                attorney_phone TEXT,
-                address TEXT,
-                sid TEXT
+                attorney_hash TEXT
+            )""",
+            """
+            CREATE TABLE IF NOT EXISTS state_information (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES case_metadata(id),
+                prosecuting_attorney TEXT,
+                prosecuting_attorney_phone TEXT
             )""",
             """
             CREATE TABLE IF NOT EXISTS charges (
                 id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id),
-                charge TEXT,
+                case_id INTEGER REFERENCES case_metadata(id),
+                charge_id INTEGER,
+                charge_level TEXT,
+                original_charge TEXT,
                 statute TEXT,
-                level TEXT,
-                date DATE
+                is_primary_charge BOOLEAN,
+                charge_date DATE,
+                charge_name TEXT,
+                uccs_code TEXT,
+                charge_desc TEXT,
+                offense_category_desc TEXT,
+                offense_type_desc TEXT
             )""",
             """
             CREATE TABLE IF NOT EXISTS dispositions (
                 id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id),
+                case_id INTEGER REFERENCES case_metadata(id),
                 date DATE,
                 event TEXT,
                 judicial_officer TEXT
@@ -125,9 +141,9 @@ class Updater():
                 outcome TEXT
             )""",
             """
-            CREATE TABLE IF NOT EXISTS events (
+            CREATE TABLE IF NOT EXISTS events_and_hearings (
                 id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES cases(id),
+                case_id INTEGER REFERENCES case_metadata(id),
                 date DATE,
                 event TEXT,
                 details TEXT

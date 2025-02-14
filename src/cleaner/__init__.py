@@ -71,7 +71,7 @@ class Cleaner:
             self.logger.error(f"Error loading file at {file_path}: {e}")
             return {}
 
-    def remove_judicial_officer(self, data):
+    """def remove_judicial_officer(self, data):
         # Check if data is a dictionary
         if isinstance(data, dict):
             # Remove 'judicial officer' if it exists in this dictionary
@@ -83,7 +83,7 @@ class Cleaner:
         # Check if data is a list
         elif isinstance(data, list):
             for item in data:
-                self.remove_judicial_officer(item)
+                self.remove_judicial_officer(item)"""
 
     def load_and_map_charge_names(self, file_path: str) -> dict:
         """Loads a JSON file and maps charge names to their corresponding UMich data."""
@@ -118,18 +118,18 @@ class Cleaner:
 
         for i, charge in enumerate(charges):
             charge_dict = {
-                "charge_id": i,
-                "charge_level": charge["level"],
-                "orignal_charge": charge["charges"],
-                "statute": charge["statute"],
-                "is_primary_charge": i == 0,
+                "ChargeId": i,
+                "ChargeLevel": charge["level"],
+                "OrignalCharge": charge["charges"],
+                "Statute": charge["statute"],
+                "IsPrimaryCharge": i == 0,
             }
 
             # Parse the charge date and append it to charge_dates
             try:
                 charge_datetime = dt.datetime.strptime(charge["date"], "%m/%d/%Y")
                 charge_dates.append(charge_datetime)
-                charge_dict["charge_date"] = dt.datetime.strftime(
+                charge_dict["ChargeDate"] = dt.datetime.strftime(
                     charge_datetime, "%Y-%m-%d"
                 )
             except ValueError:
@@ -204,29 +204,46 @@ class Cleaner:
 
         # Initialize cleaned output data
         output_json_data = {
-            "parsing_date": dt.datetime.today().strftime("%Y-%m-%d"),
-            "html_hash": input_dict["html_hash"],
-            "Case Metadata": {
-                "county": input_dict["Case Metadata"]["county"],
-                "cause_number": input_dict["Case Metadata"]["cause_number"]
-            },            
-            "Defendant Information": {
-                "appointed_or_retained": input_dict["Defendent Information"]["appointed or retained"],
-                "defense_attorney": self.hash_defense_attorney(input_dict),
+            "ParseMetadata": {
+                "ParsingDate": dt.datetime.today().strftime("%Y-%m-%d"),
+                "HTMLHash": input_dict["html_hash"],
             },
-            "Charge Information": [],
-            "Case Details": {
-                "earliest_charge_date": "",
-                "has_evidence_of_representation": False,
+            "CaseMetadata": {
+                "County": input_dict["Case Metadata"]["county"],
+                "CauseNumber": input_dict["Case Metadata"]["cause_number"],
+                "EarliestChargeDate": "",
+                "HasEvidenceOfRepresentation": False,
             },
+            "DefendantInformation": {
+                "DefendantName": input_dict["Defendent Information"]["defendant"],
+                "Sex": input_dict["Defendent Information"]["sex"],
+                "Race": input_dict["Defendent Information"]["race"],
+                "DateOfBirth": input_dict["Defendent Information"]["date of birth"],
+                "Height": input_dict["Defendent Information"]["height"],
+                "Weight": input_dict["Defendent Information"]["weight"],
+                "DefendantAddress": input_dict["Defendent Information"]["defendant address"],
+            },
+            "DefenseAttorneyInformation":{
+                "DefenseAttorney": input_dict["Defendent Information"]["defense attorney"],
+                "DefenseAttorneyPhoneNumber": input_dict["Defendent Information"]["defense attorney phone number"],
+                "SID": input_dict["Defendent Information"]["SID"],
+                "AppointedOrRetained": input_dict["Defendent Information"]["appointed or retained"],
+                "DefenseAttorneyHash": self.hash_defense_attorney(input_dict),
+            },
+            "StateInformation": {
+                "ProsecutingAttorney": input_dict["State Information"]["prosecuting attorney"],
+                "ProsecutingAttorneyPhoneNumber": input_dict["State Information"]["prosectuing attorney phone number"]
+            },
+
+            "ChargeInformation": [],
         }
-        if "Disposition_Information" in input_dict:
-            output_json_data["Disposition_Information"] = input_dict["Disposition Information"]
+        if "Disposition Information" in input_dict:
+            output_json_data["DispositionInformation"] = input_dict["Disposition Information"]
         else: 
-            output_json_data["Disposition_Information"] = None
+            output_json_data["DispositionInformation"] = None
 
         # Removing judicial office name from data
-        self.remove_judicial_officer(output_json_data["Disposition_Information"])
+        #self.remove_judicial_officer(output_json_data["Disposition_Information"])
 
         # Load charge mappings
         charge_name_to_umich_file = os.path.join(
@@ -239,17 +256,18 @@ class Cleaner:
         charges_mapped = self.load_and_map_charge_names(charge_name_to_umich_file)
 
         # Process charges and motions
-        output_json_data["Charge Information"], output_json_data['Case Details']["earliest_charge_date"] = (
-            self.process_charges(input_dict["Charge Information"], charges_mapped)
+        output_json_data["ChargeInformation"], output_json_data['CaseMetadata']["EarliestChargeDate"] = (
+            self.process_charges(input_dict['Charge Information'], charges_mapped)
         )
-        output_json_data['Good Motions'] = self.find_good_motions(
+        output_json_data['CaseMetadata']['GoodMotions'] = self.find_good_motions(
             input_dict["Other Events and Hearings"], GOOD_MOTIONS
         )
-        output_json_data['Case Details']["has_evidence_of_representation"] = (
-            len(output_json_data["Good Motions"]) > 0
+        output_json_data['CaseMetadata']["HasEvidenceOfRepresentation"] = (
+            len(output_json_data['CaseMetadata']["GoodMotions"]) > 0
         )
+        output_json_data['ParseMetadata']["CauseNumberHashed"] = self.redact_cause_number(input_dict)
 
-        output_json_data["cause_number_redacted"] = self.redact_cause_number(input_dict)
+        output_json_data['EventsAndHearings'] = input_dict["Other Events and Hearings"]
 
         # Write output to file
         output_filepath = os.path.join(cleaned_folder_path, case_json_filename)
@@ -277,7 +295,7 @@ class Cleaner:
                 self.logger.error(f"Unexpected error while cleaning case {case_json_filename}: {e}")
                 self.logger.error(f"Traceback: {traceback.format_exc()}")
 
-    def clean(self, county: str) -> None:
+    def clean(self, county: str = 'hays') -> None:
         """
         Cleans and processes case data for a given county.
         This method performs the following steps:
@@ -296,3 +314,6 @@ class Cleaner:
         except Exception as e:
             self.logger.error(f"Unexpected error while cleaning case: {e}")
             self.logger.error(f"Traceback: {traceback.format_exc()}")
+
+if __name__ == '__main__':
+    Cleaner().clean()
