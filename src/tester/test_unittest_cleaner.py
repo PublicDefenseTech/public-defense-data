@@ -147,8 +147,8 @@ class CleanTestCase(unittest.TestCase):
         processed_charges, earliest_date = self.cleaner.process_charges(charges, charge_mapping)
 
         self.assertEqual(len(processed_charges), 2)
-        self.assertEqual(processed_charges[0]['charge_date'], "2023-12-01")
-        self.assertEqual(processed_charges[1]['charge_date'], "2023-11-15")
+        self.assertEqual(processed_charges[0]['ChargeDate'], "2023-12-01")
+        self.assertEqual(processed_charges[1]['ChargeDate'], "2023-11-15")
         self.assertEqual(earliest_date, "2023-11-15")
 
         # Test invalid date
@@ -192,14 +192,13 @@ class CleanTestCase(unittest.TestCase):
 
         with open(output_file_path, 'r') as f:
             output_data = json.load(f)
-            self.assertTrue("Case Metadata" in output_data)
-            self.assertTrue("Defendant Information" in output_data)
-            self.assertTrue("Charge Information" in output_data)
-            self.assertTrue("Case Details" in output_data)
-            self.assertTrue("parsing_date" in output_data)
-            self.assertTrue("html_hash" in output_data)
-            self.assertTrue("Good Motions" in output_data)
-            self.assertTrue("cause_number_redacted" in output_data)
+            self.assertTrue("CaseMetadata" in output_data)
+            self.assertTrue("DefendantInformation" in output_data)
+            self.assertTrue("ChargeInformation" in output_data)
+            self.assertTrue("ParsingDate" in output_data['ParseMetadata'])
+            self.assertTrue("HTMLHash" in output_data['ParseMetadata'])
+            self.assertTrue("GoodMotions" in output_data['CaseMetadata'])
+            self.assertTrue("CauseNumberHashed" in output_data['ParseMetadata'])
 
     # Will need 
     """@patch("os.listdir", return_value=["case1.json", "case2.json"])
