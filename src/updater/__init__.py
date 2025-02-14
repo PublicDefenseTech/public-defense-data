@@ -3,6 +3,8 @@ from azure.cosmos import CosmosClient, exceptions
 from dotenv import load_dotenv
 from datetime import datetime as dt
 import logging
+import psycopg2
+from psycopg2 import sql
 
 class Updater():
     def __init__(self, county = "hays"):
@@ -11,17 +13,12 @@ class Updater():
             os.path.dirname(__file__), "..", "..", "data", self.county, "case_json_cleaned"
         )
         self.processed_path = os.path.join(self.case_json_cleaned_folder_path)
-
         
         # open or create a output directory for a log and successfully processed data
         if os.path.exists(self.case_json_cleaned_folder_path) and \
             not os.path.exists(self.processed_path): 
             os.makedirs(self.processed_path)
         self.logger = self.configure_logger()
-        # This sets the Azure logger to warning so it's not as verbose.
-        logging.getLogger("azure").setLevel(logging.WARNING)
-        # Get the Azure Cosmos container
-        self.COSMOSDB_CONTAINER_CASES_CLEANED = self.get_database_container()
 
     def configure_logger(self):
         logger = logging.getLogger(name=f"updater: pid: {os.getpid()}")
@@ -47,95 +44,198 @@ class Updater():
         logger.addHandler(console_handler)
 
         return logger
-    
-    def get_database_container(self):
-        #This loads the environment for interacting with CosmosDB #Dan: Should this be moved to the .env file?
-        load_dotenv()
-        URL = os.getenv("URL")
-        KEY = os.getenv("KEY")
-        DATA_BASE_NAME = os.getenv("DATA_BASE_NAME")
-        CONTAINER_NAME_CLEANED = os.getenv("CONTAINER_NAME_CLEANED")
-        try:
-            client = CosmosClient(URL, credential=KEY)
-        except Exception as e:
-            self.logger.error(f"Error instantiating CosmosClient: {e.status_code} - {e.message}")
-            return
-        try:
-            database = client.get_database_client(DATA_BASE_NAME)
-        except Exception as e:
-            self.logger.error(f"Error instantiating DatabaseClient: {e.status_code} - {e.message}")
-            return
-        try:
-            COSMOSDB_CONTAINER_CASES_CLEANED = database.get_container_client(CONTAINER_NAME_CLEANED)
-        except Exception as e:
-            self.logger.error(f"Error instantiating ContainerClient: {e.status_code} - {e.message}")
-            return
-        
-        return COSMOSDB_CONTAINER_CASES_CLEANED
-        
+
+    #Below is some quick code from chatgpt that might give a way of converting the json to tables.
+    #TODO: We should remember to work in versioning of different times parsed.
+
+    def load_db_env(self, file_path='src/updater/env.env'):
+        #Create a local environment field called 'env.env' with your credentials
+        env_path = os.path.abspath(file_path)
+        load_dotenv(file_path)
+        DB_PARAMS = {
+            "dbname": os.getenv("PGDATABASE"),
+            "user": os.getenv("PGUSER"),
+            "password": os.getenv("PGPASSWORD"),
+            "host": os.getenv("PGHOST", "localhost"),
+            "port": os.getenv("PGPORT", "5432"),
+        }
+        # Debugging: Print loaded values (except password)
+        print("Connecting to this Postgres DB:", {k: v for k, v in DB_PARAMS.items() if k != "password"})        
+        return DB_PARAMS
+
+    def create_tables(self, cursor):
+        queries = [
+            """
+            CREATE TABLE IF NOT EXISTS cases (
+                id SERIAL PRIMARY KEY,
+                cause_number TEXT UNIQUE,
+                version INTEGER,
+                date_parsed DATE,
+                odyssey_id TEXT,
+                county TEXT,
+                name TEXT,
+                case_type TEXT,
+                date_filed DATE,
+                location TEXT
+            )""",
+            """
+            CREATE TABLE IF NOT EXISTS related_cases (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES cases(id),
+                related_case TEXT
+            )""",
+            """
+            CREATE TABLE IF NOT EXISTS defendants (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES cases(id),
+                name TEXT,
+                sex TEXT,
+                race TEXT,
+                date_of_birth TEXT,
+                height TEXT,
+                weight TEXT,
+                defense_attorney TEXT,
+                appointed_retained TEXT,
+                attorney_phone TEXT,
+                address TEXT,
+                sid TEXT
+            )""",
+            """
+            CREATE TABLE IF NOT EXISTS charges (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES cases(id),
+                charge TEXT,
+                statute TEXT,
+                level TEXT,
+                date DATE
+            )""",
+            """
+            CREATE TABLE IF NOT EXISTS dispositions (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES cases(id),
+                date DATE,
+                event TEXT,
+                judicial_officer TEXT
+            )""",
+            """
+            CREATE TABLE IF NOT EXISTS disposition_details (
+                id SERIAL PRIMARY KEY,
+                disposition_id INTEGER REFERENCES dispositions(id),
+                charge TEXT,
+                outcome TEXT
+            )""",
+            """
+            CREATE TABLE IF NOT EXISTS events (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES cases(id),
+                date DATE,
+                event TEXT,
+                details TEXT
+            )"""
+        ]
+        for query in queries:
+            cursor.execute(query)
+
+    # Load JSON data
+    def get_jsons(self, folder_path=None):
+        folder_path = folder_path if folder_path else self.case_json_cleaned_folder_path
+        json_files = [f for f in os.listdir(folder_path)]
+        return json_files
+
+    def insert_case(self, cursor, case_data):
+        cursor.execute(
+            """
+            INSERT INTO cases (cause_number, odyssey_id, county, name, case_type, date_filed, location)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id""",
+            (
+                case_data["Case Metadata"]["cause_number"],
+                case_data["Case Metadata"]["odyssey id"],
+                case_data["Case Metadata"]["county"],
+                case_data["Case Details"]["name"],
+                case_data["Case Details"]["case type"],
+                case_data["Case Details"]["date filed"],
+                case_data["Case Details"]["location"]
+            )
+        )
+        return cursor.fetchone()[0]
+
+    def insert_related_cases(self, cursor, case_id, related_cases):
+        for related_case in related_cases:
+            cursor.execute("INSERT INTO related_cases (case_id, related_case) VALUES (%s, %s)", (case_id, related_case))
+
+    def insert_defendant(self, cursor, case_id, defendant_data):
+        cursor.execute(
+            """
+            INSERT INTO defendants (case_id, name, sex, race, date_of_birth, height, weight, defense_attorney, 
+            appointed_retained, attorney_phone, address, sid) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            (
+                case_id,
+                defendant_data["defendant"],
+                defendant_data["sex"],
+                defendant_data["race"],
+                defendant_data["date of birth"],
+                defendant_data["height"],
+                defendant_data["weight"],
+                defendant_data["defense attorney"],
+                defendant_data["appointed or retained"],
+                defendant_data["defense attorney phone number"],
+                defendant_data["defendant address"],
+                defendant_data["SID"]
+            )
+        )
+
+    def insert_charges(cursor, case_id, charges):
+        for charge in charges:
+            cursor.execute(
+                "INSERT INTO charges (case_id, charge, statute, level, date) VALUES (%s, %s, %s, %s, %s)",
+                (case_id, charge["charges"], charge["statute"], charge["level"], charge["date"])
+            )
+
+    def insert_dispositions(self, cursor, case_id, dispositions):
+        for disposition in dispositions:
+            cursor.execute(
+                "INSERT INTO dispositions (case_id, date, event, judicial_officer) VALUES (%s, %s, %s, %s) RETURNING id",
+                (case_id, disposition["date"], disposition["event"], disposition["judicial officer"])
+            )
+            disposition_id = cursor.fetchone()[0]
+            for detail in disposition["details"]:
+                cursor.execute(
+                    "INSERT INTO disposition_details (disposition_id, charge, outcome) VALUES (%s, %s, %s)",
+                    (disposition_id, detail["charge"], detail["outcome"])
+                )
+
+    def insert_events(self, cursor, case_id, events):
+        for event in events:
+            cursor.execute(
+                "INSERT INTO events (case_id, date, event, details) VALUES (%s, %s, %s, %s)",
+                (case_id, event[0], event[1], " ".join(event[2:]))
+            )
+
     def update(self):
-        self.logger.info("updater: Beginning updating process.")
-        if not os.path.exists(self.case_json_cleaned_folder_path):
-            self.logger.error(f'The following path doesn\'t exits: \n{self.case_json_cleaned_folder_path}')
-            return
-        
-        if not self.COSMOSDB_CONTAINER_CASES_CLEANED:
-            return
-
-        list_case_json_files = os.listdir(self.case_json_cleaned_folder_path)
-        self.logger.info(f"updater: {len(list_case_json_files)} case(s) to update")
-
-        for case_json in list_case_json_files:
-            #print(f'case_json: {case_json}')
-            in_file = self.case_json_cleaned_folder_path + "/" + case_json
-            if os.path.isfile(in_file):
-                dest_file = self.processed_path + "/" + case_json
-            else:
-                continue
-
-            with open(in_file, "r") as f:
-                input_dict = json.load(f)
-            self.logger.info(f"[Case Filename: {case_json}, Case Number: {input_dict.get('case_number', None)}, HTML Hash: {input_dict.get('html_hash', None)}]")
-
-            # Querying case databse to fetch all items that match the hash.
-            hash_query = f"SELECT * FROM COSMOSDB_CONTAINER_CASES_CLEANED WHERE COSMOSDB_CONTAINER_CASES_CLEANED['html_hash'] = '{input_dict['html_hash']}'"
-            try:
-                # Execute the query
-                cases = list(self.COSMOSDB_CONTAINER_CASES_CLEANED.query_items(query=hash_query,enable_cross_partition_query=True))
-            except Exception as e:
-                self.logger.error(f"Error querying cases-cleaned database for an existing hash: {e.status_code} - {e.message}")
-                continue
-
-            if len(cases) > 0:
-                # There already exists one with the same hash, so skip this entirely.
-                # Move the file to the processed folder.
-                os.rename(in_file, dest_file)
-                self.logger.info(f"The case's HTML hash already exists in the databse: {case_json}. Not updating the database.")
-                continue
-
-            # Querying case databse to fetch all items that match the cause number.
-            case_query = f"SELECT * FROM COSMOSDB_CONTAINER_CASES_CLEANED WHERE COSMOSDB_CONTAINER_CASES_CLEANED['case_number'] = '{input_dict['Case Metadata']['cause_number']}'"
-            try:
-                # Execute the query
-                cases = list(self.COSMOSDB_CONTAINER_CASES_CLEANED.query_items(query=case_query,enable_cross_partition_query=True))
-            except Exception as e:
-                self.logger.error(f"Error querying cases-cleaned database for an existing cases: {e.status_code} - {e.message}")
-                continue
-
-            #If there are no cases that match the cause number, then create the case ID, add a version number of 1 to the JSON and push the JSON to the database.
-            today = dt.today()
-            input_dict['id'] = input_dict['Case Metadata']['cause_number'] + ":" + input_dict['Case Metadata']['county'] + ":" + today.strftime('%m-%d-%Y') + input_dict['html_hash']
-            input_dict['version'] = max(int(case['version']) for case in cases) + 1 if len(cases) > 0 else 1
-            try:
-                self.COSMOSDB_CONTAINER_CASES_CLEANED.create_item(body=input_dict)
-            except Exception as e:
-                self.logger.error(f"Error inserting this case to cases-cleaned database: {e.status_code} - {e.message}")
-                continue
-
-            # This case is inserted successfully.
-            # Move the file to the processed folder.
-            os.rename(in_file, dest_file)
-            self.logger.info(f"Insertion successfully done with id: {input_dict['id']}, version: { input_dict['version']}")
+        DB_PARAMS = self.load_db_env()
+        conn = psycopg2.connect(**DB_PARAMS)
+        cursor = conn.cursor()
+        self.create_tables(cursor)
+        json_files = self.get_jsons()
+        for json_file in json_files:
+            self.logger.info(f"Updating the database with this json file: {json_file}")
+            json_file_path = self.case_json_cleaned_folder_path + "/" + json_file
+            # Need to have a system here that will query to see if the case table has a
+            # file with a matching hash or a matching cause number to create different versions.
+            with open(json_file_path, "r") as file:
+                data = json.load(file)
+                case_id = self.insert_case(cursor, data)
+                self.insert_related_cases(cursor, case_id, data.get("Related Cases", []))
+                self.insert_defendant(cursor, case_id, data["Defendent Information"])
+                self.insert_charges(cursor, case_id, data["Charge Information"])
+                self.insert_dispositions(cursor, case_id, data["Disposition Information"])
+                self.insert_events(cursor, case_id, data["Other Events and Hearings"])
+            break
+        conn.commit()
+        cursor.close()
+        conn.close()
 
 if __name__ == '__main__':
     Updater().update()
