@@ -5,6 +5,7 @@ from datetime import datetime as dt
 import logging
 import psycopg2
 from psycopg2 import sql
+import sys
 
 class Updater():
     def __init__(self, county = "hays"):
@@ -45,9 +46,6 @@ class Updater():
 
         return logger
 
-    #Below is some quick code from chatgpt that might give a way of converting the json to tables.
-    #TODO: We should remember to work in versioning of different times parsed.
-
     def load_db_env(self, file_path='src/updater/.env'):
         #Create a local environment field called 'env.env' with your credentials
         env_path = os.path.abspath(file_path)
@@ -86,7 +84,9 @@ class Updater():
                 case_id INTEGER REFERENCES case_metadata(id),
                 parsing_date DATE,
                 html_hash TEXT,
-                cause_number_hashed TEXT
+                odyssey_id TEXT,
+                cause_number_hashed TEXT,
+                version INTEGER
             )""",
             """
             CREATE TABLE IF NOT EXISTS defendants (
@@ -166,6 +166,36 @@ class Updater():
         json_files = [f for f in os.listdir(folder_path)]
         return json_files
 
+    # Check if the case exists by looking for a case with matching cause number and html_hash
+    def add_version(self, cursor, parse_metadata, case_metadata):
+        #First check for existing html hash
+        html_hash = parse_metadata['HTMLHash']
+        query = f"SELECT * FROM parse_metadata WHERE html_hash = %s;"
+        cursor.execute(query, (html_hash,))
+        matching_htmlhash = cursor.fetchall()
+        # If the html already exists, it will return a version value of -1, indicating to not add it again. 
+        if len(matching_htmlhash) > 0:
+            self.logger.info(f"Version: Duplicate. Not adding. Case with matching HTML hash exists. : {html_hash}")
+            return -1
+        #Get existing rows with matching cause_number
+        cause_number = case_metadata['CauseNumber']
+        query = f"SELECT * FROM case_metadata WHERE cause_number = %s;"
+        cursor.execute(query, (cause_number,))
+        existing_cause_rows = cursor.fetchall()
+        # If this is a new case.
+        if len(existing_cause_rows) == 0:
+            version = 1
+            self.logger.info(f"Version: New Case. Adding. No case with matching cause number exists. : {cause_number}")
+            return version
+        # If this is an existing case.
+        else:
+            if existing_cause_rows:
+                sorted_data = sorted(existing_cause_rows, key=lambda x: x[-1])
+                highest_version = sorted_data[0]
+                self.logger.info(f"Version: Updated Case. Adding. {version} cases with matching cause number exists. : {cause_number}")
+                version = highest_version[-1] + 1
+                return version
+
     def insert_case(self, cursor, case_data):
         cursor.execute(
             """
@@ -186,6 +216,20 @@ class Updater():
         if related_cases:
             for related_case in related_cases:
                 cursor.execute("INSERT INTO related_cases (case_id, related_case) VALUES (%s, %s)", (case_id, related_case))
+
+    def insert_parse_metadata(self, cursor, case_id, version, parse_metadata):
+        if parse_metadata:
+            cursor.execute("""INSERT INTO parse_metadata (case_id, parsing_date, html_hash, odyssey_id, cause_number_hashed, version)
+            VALUES (%s, %s, %s, %s, %s, %s)""", 
+            (
+                case_id,
+                parse_metadata['ParsingDate'],
+                parse_metadata['HTMLHash'],
+                parse_metadata['OdysseyID'],
+                parse_metadata['CauseNumberHashed'],
+                version
+            )
+            )
 
     def insert_defendant(self, cursor, case_id, defendant_data):
         if defendant_data:
@@ -218,6 +262,19 @@ class Updater():
                     defense_attorney_data["DefenseAttorneyPhoneNumber"],
                     defense_attorney_data["AppointedOrRetained"],
                     defense_attorney_data["DefenseAttorneyHash"],
+                )
+            )
+
+    def insert_state_information(self, cursor, case_id, state_information_data):
+        if state_information_data:
+            cursor.execute(
+                """
+                INSERT INTO defense_attorneys (case_id, prosecuting_attorney, prosecuting_attorney_phone) 
+                VALUES (%s, %s, %s)""",
+                (
+                    case_id,
+                    state_information_data["ProsecutingAttorney"],
+                    state_information_data["ProsecutingAttorneyPhoneNumber"],
                 )
             )
 
@@ -280,13 +337,18 @@ class Updater():
             # file with a matching hash or a matching cause number to create different versions.
             with open(json_file_path, "r") as file:
                 data = json.load(file)
-                case_id = self.insert_case(cursor, data['CaseMetadata'])
-                self.insert_related_cases(cursor, case_id, data['CaseMetadata'].get("RelatedCases", []))
-                self.insert_defendant(cursor, case_id, data["DefendantInformation"])
-                self.insert_defense_attorney(cursor, case_id, data["DefenseAttorneyInformation"])
-                self.insert_charges(cursor, case_id, data["ChargeInformation"])
-                self.insert_dispositions(cursor, case_id, data["DispositionInformation"])
-                self.insert_events(cursor, case_id, data["EventsAndHearings"])
+                version = self.add_version(cursor, data['ParseMetadata'], data['CaseMetadata'])
+                if version > 0: # Is a new or updated case.
+                    case_id = self.insert_case(cursor, data['CaseMetadata'])
+                    self.insert_related_cases(cursor, case_id, data['CaseMetadata'].get("RelatedCases", []))
+                    self.insert_parse_metadata(cursor, case_id, version, data["ParseMetadata"])
+                    self.insert_defendant(cursor, case_id, data["DefendantInformation"])
+                    self.insert_defense_attorney(cursor, case_id, data["DefenseAttorneyInformation"])
+                    self.insert_charges(cursor, case_id, data["ChargeInformation"])
+                    self.insert_dispositions(cursor, case_id, data["DispositionInformation"])
+                    self.insert_events(cursor, case_id, data["EventsAndHearings"])
+                elif version == -1: # Determined to be a duplicate based on html
+                    pass
             
         conn.commit()
         cursor.close()
