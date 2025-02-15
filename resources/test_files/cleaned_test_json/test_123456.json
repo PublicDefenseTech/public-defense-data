@@ -2,6 +2,7 @@
     "ParseMetadata": {
         "ParsingDate": "2025-02-14",
         "HTMLHash": "8d4a80173c700b37",
+        "OdysseyID": "test_123456",
         "CauseNumberHashed": "871239500b7fe2fd"
     },
     "CaseMetadata": {
@@ -9,6 +10,7 @@
         "CauseNumber": "CR-17-5152-C",
         "EarliestChargeDate": "2015-10-25",
         "HasEvidenceOfRepresentation": false,
+        "RelatedCases": null,
         "GoodMotions": []
     },
     "DefendantInformation": {
@@ -18,12 +20,12 @@
         "DateOfBirth": "DOB: 02/15/1997",
         "Height": "5'6\",",
         "Weight": "200",
-        "DefendantAddress": "876 Main St Natalia, TX 78059"
+        "DefendantAddress": "876 Main St Natalia, TX 78059",
+        "SID": "TX03816410"
     },
     "DefenseAttorneyInformation": {
         "DefenseAttorney": "Richard Jones",
         "DefenseAttorneyPhoneNumber": "512-632-2433(W)",
-        "SID": "TX03816410",
         "AppointedOrRetained": "Court Appointed",
         "DefenseAttorneyHash": "9083bb693e33919c"
     },
