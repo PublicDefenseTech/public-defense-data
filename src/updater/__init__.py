@@ -48,7 +48,7 @@ class Updater():
     #Below is some quick code from chatgpt that might give a way of converting the json to tables.
     #TODO: We should remember to work in versioning of different times parsed.
 
-    def load_db_env(self, file_path='src/updater/env.env'):
+    def load_db_env(self, file_path='src/updater/.env'):
         #Create a local environment field called 'env.env' with your credentials
         env_path = os.path.abspath(file_path)
         load_dotenv(file_path)
