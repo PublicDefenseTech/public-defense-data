@@ -207,6 +207,7 @@ class Cleaner:
             "ParseMetadata": {
                 "ParsingDate": dt.datetime.today().strftime("%Y-%m-%d"),
                 "HTMLHash": input_dict["html_hash"],
+                "OdysseyID":input_dict['Case Metadata']['odyssey id']
             },
             "CaseMetadata": {
                 "County": input_dict["Case Metadata"]["county"],
@@ -222,11 +223,11 @@ class Cleaner:
                 "Height": input_dict["Defendent Information"]["height"],
                 "Weight": input_dict["Defendent Information"]["weight"],
                 "DefendantAddress": input_dict["Defendent Information"]["defendant address"],
+                "SID": input_dict["Defendent Information"]["SID"],
             },
             "DefenseAttorneyInformation":{
                 "DefenseAttorney": input_dict["Defendent Information"]["defense attorney"],
                 "DefenseAttorneyPhoneNumber": input_dict["Defendent Information"]["defense attorney phone number"],
-                "SID": input_dict["Defendent Information"]["SID"],
                 "AppointedOrRetained": input_dict["Defendent Information"]["appointed or retained"],
                 "DefenseAttorneyHash": self.hash_defense_attorney(input_dict),
             },
@@ -241,6 +242,12 @@ class Cleaner:
             output_json_data["DispositionInformation"] = input_dict["Disposition Information"]
         else: 
             output_json_data["DispositionInformation"] = None
+
+        if "Related Cases" in input_dict:
+            output_json_data['CaseMetadata']['RelatedCases'] = input_dict['Related Cases']
+        else:
+            output_json_data['CaseMetadata']['RelatedCases'] = None
+
 
         # Removing judicial office name from data
         #self.remove_judicial_officer(output_json_data["Disposition_Information"])

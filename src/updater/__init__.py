@@ -56,8 +56,8 @@ class Updater():
             "dbname": os.getenv("PGDATABASE"),
             "user": os.getenv("PGUSER"),
             "password": os.getenv("PGPASSWORD"),
-            "host": os.getenv("PGHOST", "localhost"),
-            "port": os.getenv("PGPORT", "5432"),
+            "host": os.getenv("PGHOST"),
+            "port": os.getenv("PGPORT"),
         }
         # Debugging: Print loaded values (except password)
         print("Connecting to this Postgres DB:", {k: v for k, v in DB_PARAMS.items() if k != "password"})        
@@ -66,19 +66,27 @@ class Updater():
     def create_tables(self, cursor):
         queries = [
             """
-            CREATE TABLE IF NOT EXISTS parse_metadata (
-                id SERIAL PRIMARY KEY,
-                parsing_date DATE,
-                html_hash TEXT,
-                cause_number_hashed TEXT
-            )""",
-            """
             CREATE TABLE IF NOT EXISTS case_metadata (
                 id SERIAL PRIMARY KEY,
                 county TEXT,
-                cause_number TEXT UNIQUE,
+                cause_number TEXT,
                 earliest_charge_date DATE,
-                has_evidence_of_representation BOOLEAN
+                has_evidence_of_representation BOOLEAN,
+                good_motions TEXT
+            )""",
+"""
+            CREATE TABLE IF NOT EXISTS related_cases (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES case_metadata(id),
+                related_case TEXT
+            )""",
+            """
+            CREATE TABLE IF NOT EXISTS parse_metadata (
+                id SERIAL PRIMARY KEY,
+                case_id INTEGER REFERENCES case_metadata(id),
+                parsing_date DATE,
+                html_hash TEXT,
+                cause_number_hashed TEXT
             )""",
             """
             CREATE TABLE IF NOT EXISTS defendants (
@@ -90,7 +98,8 @@ class Updater():
                 date_of_birth TEXT,
                 height TEXT,
                 weight TEXT,
-                address TEXT
+                address TEXT,
+                sid TEXT
             )""",
             """
             CREATE TABLE IF NOT EXISTS defense_attorneys (
@@ -98,7 +107,6 @@ class Updater():
                 case_id INTEGER REFERENCES case_metadata(id),
                 name TEXT,
                 phone TEXT,
-                sid TEXT,
                 appointed_retained TEXT,
                 attorney_hash TEXT
             )""",
@@ -141,7 +149,7 @@ class Updater():
                 outcome TEXT
             )""",
             """
-            CREATE TABLE IF NOT EXISTS events_and_hearings (
+            CREATE TABLE IF NOT EXISTS events (
                 id SERIAL PRIMARY KEY,
                 case_id INTEGER REFERENCES case_metadata(id),
                 date DATE,
@@ -161,73 +169,103 @@ class Updater():
     def insert_case(self, cursor, case_data):
         cursor.execute(
             """
-            INSERT INTO cases (cause_number, odyssey_id, county, name, case_type, date_filed, location)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO case_metadata (county, cause_number, earliest_charge_date, has_evidence_of_representation, good_motions)
+            VALUES (%s, %s, %s, %s, %s)
             RETURNING id""",
             (
-                case_data["Case Metadata"]["cause_number"],
-                case_data["Case Metadata"]["odyssey id"],
-                case_data["Case Metadata"]["county"],
-                case_data["Case Details"]["name"],
-                case_data["Case Details"]["case type"],
-                case_data["Case Details"]["date filed"],
-                case_data["Case Details"]["location"]
+                case_data["County"],
+                case_data["CauseNumber"],
+                case_data["EarliestChargeDate"],
+                case_data["HasEvidenceOfRepresentation"],
+                case_data["GoodMotions"],
             )
         )
         return cursor.fetchone()[0]
 
     def insert_related_cases(self, cursor, case_id, related_cases):
-        for related_case in related_cases:
-            cursor.execute("INSERT INTO related_cases (case_id, related_case) VALUES (%s, %s)", (case_id, related_case))
+        if related_cases:
+            for related_case in related_cases:
+                cursor.execute("INSERT INTO related_cases (case_id, related_case) VALUES (%s, %s)", (case_id, related_case))
 
     def insert_defendant(self, cursor, case_id, defendant_data):
-        cursor.execute(
-            """
-            INSERT INTO defendants (case_id, name, sex, race, date_of_birth, height, weight, defense_attorney, 
-            appointed_retained, attorney_phone, address, sid) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-            (
-                case_id,
-                defendant_data["defendant"],
-                defendant_data["sex"],
-                defendant_data["race"],
-                defendant_data["date of birth"],
-                defendant_data["height"],
-                defendant_data["weight"],
-                defendant_data["defense attorney"],
-                defendant_data["appointed or retained"],
-                defendant_data["defense attorney phone number"],
-                defendant_data["defendant address"],
-                defendant_data["SID"]
-            )
-        )
-
-    def insert_charges(cursor, case_id, charges):
-        for charge in charges:
+        if defendant_data:
             cursor.execute(
-                "INSERT INTO charges (case_id, charge, statute, level, date) VALUES (%s, %s, %s, %s, %s)",
-                (case_id, charge["charges"], charge["statute"], charge["level"], charge["date"])
+                """
+                INSERT INTO defendants (case_id, name, sex, race, date_of_birth, height, weight, address, sid) 
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (
+                    case_id,
+                    defendant_data["DefendantName"],
+                    defendant_data["Sex"],
+                    defendant_data["Race"],
+                    defendant_data["DateOfBirth"],
+                    defendant_data["Height"],
+                    defendant_data["Weight"],
+                    defendant_data["DefendantAddress"],
+                    defendant_data["SID"],
+                )
             )
 
-    def insert_dispositions(self, cursor, case_id, dispositions):
-        for disposition in dispositions:
+    def insert_defense_attorney(self, cursor, case_id, defense_attorney_data):
+        if defense_attorney_data:
             cursor.execute(
-                "INSERT INTO dispositions (case_id, date, event, judicial_officer) VALUES (%s, %s, %s, %s) RETURNING id",
-                (case_id, disposition["date"], disposition["event"], disposition["judicial officer"])
+                """
+                INSERT INTO defense_attorneys (case_id, name, phone, appointed_retained, attorney_hash) 
+                VALUES (%s, %s, %s, %s, %s)""",
+                (
+                    case_id,
+                    defense_attorney_data["DefenseAttorney"],
+                    defense_attorney_data["DefenseAttorneyPhoneNumber"],
+                    defense_attorney_data["AppointedOrRetained"],
+                    defense_attorney_data["DefenseAttorneyHash"],
+                )
             )
-            disposition_id = cursor.fetchone()[0]
-            for detail in disposition["details"]:
+
+    def insert_charges(self, cursor, case_id, charges):
+        if charges:
+            for charge in charges:
                 cursor.execute(
-                    "INSERT INTO disposition_details (disposition_id, charge, outcome) VALUES (%s, %s, %s)",
-                    (disposition_id, detail["charge"], detail["outcome"])
+                    """INSERT INTO charges (case_id, charge_id, charge_level, original_charge, 
+                    statute, is_primary_charge, charge_date, charge_name, uccs_code, charge_desc,
+                    offense_category_desc, offense_type_desc)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (
+                        case_id, 
+                        charge["ChargeId"],
+                        charge["ChargeLevel"], 
+                        charge["OrignalCharge"], 
+                        charge["Statute"],
+                        charge["IsPrimaryCharge"],
+                        charge["ChargeDate"],
+                        charge["charge_name"],
+                        charge["uccs_code"],
+                        charge["charge_desc"],
+                        charge["offense_category_desc"],
+                        charge["offense_type_desc"],
+                    )
                 )
 
+    def insert_dispositions(self, cursor, case_id, dispositions):
+        if dispositions:
+            for disposition in dispositions:
+                cursor.execute(
+                    "INSERT INTO dispositions (case_id, date, event, judicial_officer) VALUES (%s, %s, %s, %s) RETURNING id",
+                    (case_id, disposition["date"], disposition["event"], disposition["judicial officer"])
+                )
+                disposition_id = cursor.fetchone()[0]
+                for detail in disposition["details"]:
+                    cursor.execute(
+                        "INSERT INTO disposition_details (disposition_id, charge, outcome) VALUES (%s, %s, %s)",
+                        (disposition_id, detail["charge"], detail["outcome"])
+                    )
+
     def insert_events(self, cursor, case_id, events):
-        for event in events:
-            cursor.execute(
-                "INSERT INTO events (case_id, date, event, details) VALUES (%s, %s, %s, %s)",
-                (case_id, event[0], event[1], " ".join(event[2:]))
-            )
+        if events:
+            for event in events:
+                cursor.execute(
+                    "INSERT INTO events (case_id, date, event, details) VALUES (%s, %s, %s, %s)",
+                    (case_id, event[0], event[1], " ".join(event[2:]))
+                )
 
     def update(self):
         DB_PARAMS = self.load_db_env()
@@ -242,13 +280,14 @@ class Updater():
             # file with a matching hash or a matching cause number to create different versions.
             with open(json_file_path, "r") as file:
                 data = json.load(file)
-                case_id = self.insert_case(cursor, data)
-                self.insert_related_cases(cursor, case_id, data.get("Related Cases", []))
-                self.insert_defendant(cursor, case_id, data["Defendent Information"])
-                self.insert_charges(cursor, case_id, data["Charge Information"])
-                self.insert_dispositions(cursor, case_id, data["Disposition Information"])
-                self.insert_events(cursor, case_id, data["Other Events and Hearings"])
-            break
+                case_id = self.insert_case(cursor, data['CaseMetadata'])
+                self.insert_related_cases(cursor, case_id, data['CaseMetadata'].get("RelatedCases", []))
+                self.insert_defendant(cursor, case_id, data["DefendantInformation"])
+                self.insert_defense_attorney(cursor, case_id, data["DefenseAttorneyInformation"])
+                self.insert_charges(cursor, case_id, data["ChargeInformation"])
+                self.insert_dispositions(cursor, case_id, data["DispositionInformation"])
+                self.insert_events(cursor, case_id, data["EventsAndHearings"])
+            
         conn.commit()
         cursor.close()
         conn.close()
