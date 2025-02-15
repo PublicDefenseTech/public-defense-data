@@ -37,8 +37,12 @@ def export_tables_to_csv(database_url, zip_filename):
             # Write the data
             writer.writerows(rows)
 
+    output_dir = "data"  # The directory where you want to save the zip
+    os.makedirs(output_dir, exist_ok=True) # Create the directory if it doesn't exist
+    output_path = os.path.join(output_dir, zip_filename) # Combine directory and filename
+
     # Create a ZIP file containing all the CSVs
-    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for file in os.listdir(temp_dir):
             zipf.write(os.path.join(temp_dir, file), file)
 
@@ -51,10 +55,10 @@ def export_tables_to_csv(database_url, zip_filename):
     cursor.close()
     conn.close()
 
-def load_db_env(file_path='src/updater/env.env'):
+def load_db_env(file_path='src/updater/.env'):
     #Create a local environment field called 'env.env' with your credentials
     env_path = os.path.abspath(file_path)
-    load_dotenv(file_path)
+    load_dotenv(env_path)
     DB_PARAMS = {
         "dbname": os.getenv("PGDATABASE"),
         "user": os.getenv("PGUSER"),
@@ -65,7 +69,6 @@ def load_db_env(file_path='src/updater/env.env'):
     return DB_PARAMS
 
 DB_PARAMS = load_db_env()
-
 # Example usage:
 user = DB_PARAMS['user']
 password = DB_PARAMS['password']
