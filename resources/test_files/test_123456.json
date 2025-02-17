@@ -1,33 +1,33 @@
 {
-    "Case Metadata": {
+    "case_metadata": {
         "cause_number": "CR-17-5152-C",
-        "odyssey id": "test_123456",
+        "odyssey_id": "test_123456",
         "county": "hays"
     },
-    "Case Details": {
+    "case_details": {
         "name": "The State of Texas vs. Zzzzzz Xxxxxx",
-        "case type": "Adult Felony",
-        "date filed": "01/05/2016",
+        "case_type": "Adult Felony",
+        "date_filed": "01/05/2016",
         "location": "22nd District Court"
     },
-    "Defendent Information": {
+    "defendant_information": {
         "defendant": "Xxxxxx, Zzzzzz",
         "sex": "Female",
         "race": "White",
-        "date of birth": "DOB: 02/15/1997",
+        "date_of_birth": "DOB: 02/15/1997",
         "height": "5'6\",",
         "weight": "200",
-        "defense attorney": "Richard Jones",
-        "appointed or retained": "Court Appointed",
-        "defense attorney phone number": "512-632-2433(W)",
-        "defendant address": "876 Main St Natalia, TX 78059",
-        "SID": "TX03816410"
+        "defense_attorney": "Richard Jones",
+        "appointed_or_retained": "Court Appointed",
+        "defense_attorney_phone_number": "512-632-2433(W)",
+        "defendant_address": "876 Main St Natalia, TX 78059",
+        "sid": "TX03816410"
     },
-    "State Information": {
-        "prosecuting attorney": "Yuuuuu Haaaaa",
-        "prosectuing attorney phone number": "512-362-7711(W)"
+    "state_information": {
+        "prosecuting_attorney": "Yuuuuu Haaaaa",
+        "prosecuting_attorney_phone_number": "512-362-7711(W)"
     },
-    "Charge Information": [
+    "charge_information": [
         {
             "charges": "AGGRAVATED ASSAULT WITH A DEADLY WEAPON",
             "statute": "22.02(a)(2)",
@@ -35,11 +35,11 @@
             "date": "10/25/2015"
         }
     ],
-    "Disposition Information": [
+    "disposition_information": [
         {
             "date": "12/06/2016",
             "event": "Disposition",
-            "judicial officer": "Boyer, Bruce",
+            "judicial_officer": "Boyer, Bruce",
             "details": [
                 {
                     "charge": "1. AGGRAVATED ASSAULT WITH A DEADLY WEAPON",
@@ -50,7 +50,7 @@
         {
             "date": "11/04/2019",
             "event": "Amended Disposition",
-            "judicial officer": "Boyer, Bruce) Reason: Community Supervision Extende",
+            "judicial_officer": "Boyer, Bruce) Reason: Community Supervision Extende",
             "details": [
                 {
                     "charge": "1. AGGRAVATED ASSAULT WITH A DEADLY WEAPON",
@@ -59,12 +59,12 @@
             ]
         }
     ],
-    "Top Charge": {
-        "charge name": "AGGRAVATED ASSAULT WITH A DEADLY WEAPON",
-        "charge level": "Second Degree Felony"
+    "top_charge": {
+        "charge_name": "AGGRAVATED ASSAULT WITH A DEADLY WEAPON",
+        "charge_level": "Second Degree Felony"
     },
-    "Dismissed Charges Count": 0,
-    "Other Events and Hearings": [
+    "dismissed_charges_count": 0,
+    "events": [
         [
             "08/12/2024",
             "Motion to Adjudicate",

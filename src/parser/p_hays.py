@@ -71,8 +71,8 @@ class ParserHays:
                             if severity < min_severity:
                                 min_severity = severity
                                 top_charge = {
-                                    "charge name": charge_name,
-                                    "charge level": charge_level
+                                    "charge_name": charge_name,
+                                    "charge_level": charge_level
                                 }
                 else:
                     logger.info(f"Unexpected type for disposition: {type(disposition)}")
@@ -81,8 +81,8 @@ class ParserHays:
         except Exception as e:
             logger.info(f"Error getting top charge: {e}")
             return {
-                "charge name": "Unknown",
-                "charge level": "Unknown"
+                "charge_name": "Unknown",
+                "charge_level": "Unknown"
             }
 
     def get_case_metadata(self, county: str, case_number: str, case_soup: BeautifulSoup, logger) -> Dict[str, str]:
@@ -90,14 +90,14 @@ class ParserHays:
             #logger.info(f"Getting case metadata for {county} case {case_number}")
             return {
                 "cause_number": case_soup.select('div[class="ssCaseDetailCaseNbr"] > span')[0].text,
-                "odyssey id": case_number,
+                "odyssey_id": case_number,
                 "county": county
             }  
         except Exception as e:
             logger.info(f"Error getting case metadata: {e}")
             return {
                 "cause_number": "Unknown",
-                "odyssey id": case_number,
+                "odyssey_id": case_number,
                 "county": county
             }
         
@@ -107,16 +107,16 @@ class ParserHays:
             #logger.info(f"Getting case details")
             return {
                 "name": table_values[0].text,
-                "case type": table_values[1].text,
-                "date filed": table_values[2].text,
+                "case_type": table_values[1].text,
+                "date_filed": table_values[2].text,
                 "location": table_values[3].text
             }
         except Exception as e:
             logger.info(f"Error getting case details: {e}")
             return {
                 "name": "Unknown",
-                "case type": "Unknown",
-                "date filed": "Unknown",
+                "case_type": "Unknown",
+                "date_filed": "Unknown",
                 "location": "Unknown"
             }   
     
@@ -127,14 +127,14 @@ class ParserHays:
                 "defendant": defendant_rows[1][1],
                 "sex": defendant_rows[1][2].split(" ")[0],
                 "race": defendant_rows[1][2].split(" ")[1],
-                "date of birth": defendant_rows[1][3],
+                "date_of_birth": defendant_rows[1][3],
                 "height": defendant_rows[1][4].split(" ")[0],
                 "weight": defendant_rows[1][4].split(" ")[1],
-                "defense attorney": defendant_rows[1][5],
-                "appointed or retained": defendant_rows[1][6],
-                "defense attorney phone number": defendant_rows[1][7],
-                "defendant address": defendant_rows[2][0] + " " + defendant_rows[2][1],
-                "SID": defendant_rows[2][3],
+                "defense_attorney": defendant_rows[1][5],
+                "appointed_or_retained": defendant_rows[1][6],
+                "defense_attorney_phone_number": defendant_rows[1][7],
+                "defendant_address": defendant_rows[2][0] + " " + defendant_rows[2][1],
+                "sid": defendant_rows[2][3],
             }
         except Exception as e:
             logger.info(f"Error parsing defendant rows: {e}")
@@ -142,28 +142,28 @@ class ParserHays:
                 "defendant": "Unknown",
                 "sex": "Unknown",  
                 "race": "Unknown", 
-                "date of birth": "Unknown",
+                "date_of_birth": "Unknown",
                 "height": "Unknown",
                 "weight": "Unknown",
-                "defense attorney": "Unknown",
-                "appointed or retained": "Unknown",
-                "defense attorney phone number": "Unknown",
-                "defendant address": "Unknown",
-                "SID": "Unknown",
+                "defense_attorney": "Unknown",
+                "appointed_or_retained": "Unknown",
+                "defense_attorney_phone_number": "Unknown",
+                "defendant_address": "Unknown",
+                "sid": "Unknown",
             }
         
     def parse_state_rows(self, state_rows: List[List[str]], logger) -> Dict[str, str]:
         try:
             #logger.info(f"Parsing state rows")
             return {
-                "prosecuting attorney": state_rows[3][2],
-                "prosectuing attorney phone number": state_rows[3][3],
+                "prosecuting_attorney": state_rows[3][2],
+                "prosecuting_attorney_phone_number": state_rows[3][3],
             }
         except Exception as e:
             logger.info(f"Error parsing state rows: {e}")
             return {
-                "prosecuting attorney": "Unknown",
-                "prosectuing attorney phone number": "Unknown",
+                "prosecuting_attorney": "Unknown",
+                "prosecuting_attorney_phone_number": "Unknown",
             }
         
     def get_charge_information(self, table: BeautifulSoup, logger) -> List[Dict]:
@@ -244,7 +244,7 @@ class ParserHays:
                 disposition = {
                     "date": row[0],
                     "event": row[1],
-                    "judicial officer": judicial_officer,
+                    "judicial_officer": judicial_officer,
                     "details": []
                 }
 
@@ -273,24 +273,24 @@ class ParserHays:
             root_tables = case_soup.select("body>table")
 
             case_data = {
-                "Case Metadata": self.get_case_metadata(county, case_number, case_soup, logger)
+                "case_metadata": self.get_case_metadata(county, case_number, case_soup, logger)
             }
 
             for table in root_tables:
 
                 if "Case Type:" in table.text and "Date Filed:" in table.text:
-                    case_data["Case Details"] = self.get_case_details(table, logger)
+                    case_data["case_details"] = self.get_case_details(table, logger)
 
                 elif "Related Case Information" in table.text:
-                    case_data["Related Cases"] = [
+                    case_data["related_cases"] = [
                         case.text.strip().replace("\xa0", " ") for case in table.select("td")]
 
                 elif "Party Information" in table.text:
-                    case_data["Defendent Information"] = self.parse_defendant_rows(self.extract_rows(table, logger), logger)
-                    case_data["State Information"] = self.parse_state_rows(self.extract_rows(table, logger), logger)
+                    case_data["defendant_information"] = self.parse_defendant_rows(self.extract_rows(table, logger), logger)
+                    case_data["state_information"] = self.parse_state_rows(self.extract_rows(table, logger), logger)
 
                 elif "Charge Information" in table.text:
-                    case_data["Charge Information"] = self.get_charge_information(table, logger)
+                    case_data["charge_information"] = self.get_charge_information(table, logger)
 
                 elif "Events & Orders of the Court" in table.text:
                     disposition_rows, other_event_rows = self.format_events_and_orders_of_the_court(table, case_soup, logger)
@@ -298,12 +298,12 @@ class ParserHays:
                     dispositions = []
                     #logger.info(f"For Loop started\nGetting disposition information")
                     for row in disposition_rows:
-                        case_data["Disposition Information"] = self.get_disposition_information(row, dispositions, case_data, table, county, case_soup, logger)
+                        case_data["disposition_information"] = self.get_disposition_information(row, dispositions, case_data, table, county, case_soup, logger)
                     #logger.info(f"For Loop ended\n")
-                    if "Disposition Information" in case_data:
-                        case_data["Top Charge"] = self.get_top_charge(dispositions, case_data.get("Charge Information", []), logger)
-                        case_data["Dismissed Charges Count"] = self.count_dismissed_charges(case_data["Disposition Information"], logger)
-                    case_data['Other Events and Hearings'] = other_event_rows
+                    if "disposition_information" in case_data:
+                        case_data["top_charge"] = self.get_top_charge(dispositions, case_data.get("charge_information", []), logger)
+                        case_data["dismissed_charges_count"] = self.count_dismissed_charges(case_data["disposition_information"], logger)
+                    case_data['events'] = other_event_rows
                     
             return case_data
         except Exception as e:

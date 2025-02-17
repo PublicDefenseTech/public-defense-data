@@ -169,7 +169,7 @@ class Updater():
     # Check if the case exists by looking for a case with matching cause number and html_hash
     def add_version(self, cursor, parse_metadata, case_metadata):
         #First check for existing html hash
-        html_hash = parse_metadata['HTMLHash']
+        html_hash = parse_metadata['html_hash']
         query = f"SELECT * FROM parse_metadata WHERE html_hash = %s;"
         cursor.execute(query, (html_hash,))
         matching_htmlhash = cursor.fetchall()
@@ -178,7 +178,7 @@ class Updater():
             self.logger.info(f"Version: Duplicate. Not adding. Case with matching HTML hash exists. : {html_hash}")
             return -1
         #Get existing rows with matching cause_number
-        cause_number = case_metadata['CauseNumber']
+        cause_number = case_metadata['case_number']
         query = f"SELECT * FROM case_metadata WHERE cause_number = %s;"
         cursor.execute(query, (cause_number,))
         existing_cause_rows = cursor.fetchall()
@@ -203,11 +203,11 @@ class Updater():
             VALUES (%s, %s, %s, %s, %s)
             RETURNING id""",
             (
-                case_data["County"],
-                case_data["CauseNumber"],
-                case_data["EarliestChargeDate"],
-                case_data["HasEvidenceOfRepresentation"],
-                case_data["GoodMotions"],
+                case_data["county"],
+                case_data["cause_number"],
+                case_data["earliest_charge_date"],
+                case_data["has_evidence_of_representation"],
+                case_data["good_motions"],
             )
         )
         return cursor.fetchone()[0]
@@ -223,10 +223,10 @@ class Updater():
             VALUES (%s, %s, %s, %s, %s, %s)""", 
             (
                 case_id,
-                parse_metadata['ParsingDate'],
-                parse_metadata['HTMLHash'],
-                parse_metadata['OdysseyID'],
-                parse_metadata['CauseNumberHashed'],
+                parse_metadata['parsing_date'],
+                parse_metadata['html_hash'],
+                parse_metadata['odyssey_id'],
+                parse_metadata['cause_number_hashed'],
                 version
             )
             )
@@ -239,14 +239,14 @@ class Updater():
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 (
                     case_id,
-                    defendant_data["DefendantName"],
-                    defendant_data["Sex"],
-                    defendant_data["Race"],
-                    defendant_data["DateOfBirth"],
-                    defendant_data["Height"],
-                    defendant_data["Weight"],
-                    defendant_data["DefendantAddress"],
-                    defendant_data["SID"],
+                    defendant_data["defendant_name"],
+                    defendant_data["sex"],
+                    defendant_data["race"],
+                    defendant_data["date_of_birth"],
+                    defendant_data["height"],
+                    defendant_data["weight"],
+                    defendant_data["defendant_address"],
+                    defendant_data["sid"],
                 )
             )
 
@@ -258,10 +258,10 @@ class Updater():
                 VALUES (%s, %s, %s, %s, %s)""",
                 (
                     case_id,
-                    defense_attorney_data["DefenseAttorney"],
-                    defense_attorney_data["DefenseAttorneyPhoneNumber"],
-                    defense_attorney_data["AppointedOrRetained"],
-                    defense_attorney_data["DefenseAttorneyHash"],
+                    defense_attorney_data["defense_attorney"],
+                    defense_attorney_data["defense_attorney_phone_number"],
+                    defense_attorney_data["appointed_or_retained"],
+                    defense_attorney_data["defense_attorney_hash"],
                 )
             )
 
@@ -273,8 +273,8 @@ class Updater():
                 VALUES (%s, %s, %s)""",
                 (
                     case_id,
-                    state_information_data["ProsecutingAttorney"],
-                    state_information_data["ProsecutingAttorneyPhoneNumber"],
+                    state_information_data["prosecuting_attorney"],
+                    state_information_data["prosecuting_attorney_phone_number"],
                 )
             )
 
@@ -288,12 +288,12 @@ class Updater():
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (
                         case_id, 
-                        charge["ChargeId"],
-                        charge["ChargeLevel"], 
-                        charge["OrignalCharge"], 
-                        charge["Statute"],
-                        charge["IsPrimaryCharge"],
-                        charge["ChargeDate"],
+                        charge["charge_id"],
+                        charge["charge_level"], 
+                        charge["orignal_charge"], 
+                        charge["statute"],
+                        charge["is_primary_charge"],
+                        charge["charge_date"],
                         charge["charge_name"],
                         charge["uccs_code"],
                         charge["charge_desc"],
@@ -307,7 +307,7 @@ class Updater():
             for disposition in dispositions:
                 cursor.execute(
                     "INSERT INTO dispositions (case_id, date, event, judicial_officer) VALUES (%s, %s, %s, %s) RETURNING id",
-                    (case_id, disposition["date"], disposition["event"], disposition["judicial officer"])
+                    (case_id, disposition["date"], disposition["event"], disposition["judicial_officer"])
                 )
                 disposition_id = cursor.fetchone()[0]
                 for detail in disposition["details"]:
@@ -337,16 +337,16 @@ class Updater():
             # file with a matching hash or a matching cause number to create different versions.
             with open(json_file_path, "r") as file:
                 data = json.load(file)
-                version = self.add_version(cursor, data['ParseMetadata'], data['CaseMetadata'])
+                version = self.add_version(cursor, data['parse_metadata'], data['case_metadata'])
                 if version > 0: # Is a new or updated case.
-                    case_id = self.insert_case(cursor, data['CaseMetadata'])
-                    self.insert_related_cases(cursor, case_id, data['CaseMetadata'].get("RelatedCases", []))
-                    self.insert_parse_metadata(cursor, case_id, version, data["ParseMetadata"])
-                    self.insert_defendant(cursor, case_id, data["DefendantInformation"])
-                    self.insert_defense_attorney(cursor, case_id, data["DefenseAttorneyInformation"])
-                    self.insert_charges(cursor, case_id, data["ChargeInformation"])
-                    self.insert_dispositions(cursor, case_id, data["DispositionInformation"])
-                    self.insert_events(cursor, case_id, data["EventsAndHearings"])
+                    case_id = self.insert_case(cursor, data['case_metadata'])
+                    self.insert_related_cases(cursor, case_id, data['case_metadata'].get("related_cases", []))
+                    self.insert_parse_metadata(cursor, case_id, version, data["parse_metadata"])
+                    self.insert_defendant(cursor, case_id, data["defendant_information"])
+                    self.insert_defense_attorney(cursor, case_id, data["defense_attorney_information"])
+                    self.insert_charges(cursor, case_id, data["charge_information"])
+                    self.insert_dispositions(cursor, case_id, data["disposition_information"])
+                    self.insert_events(cursor, case_id, data["events"])
                 elif version == -1: # Determined to be a duplicate based on html
                     pass
             

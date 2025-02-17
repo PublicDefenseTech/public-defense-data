@@ -1,46 +1,46 @@
 {
-    "ParseMetadata": {
-        "ParsingDate": "2025-02-14",
-        "HTMLHash": "8d4a80173c700b37",
-        "OdysseyID": "test_123456",
-        "CauseNumberHashed": "871239500b7fe2fd"
+    "parse_metadata": {
+        "parsing_date": "2025-02-17",
+        "html_hash": "8d4a80173c700b37",
+        "odyssey_id": "test_123456",
+        "cause_number_hashed": "871239500b7fe2fd"
     },
-    "CaseMetadata": {
-        "County": "hays",
-        "CauseNumber": "CR-17-5152-C",
-        "EarliestChargeDate": "2015-10-25",
-        "HasEvidenceOfRepresentation": false,
-        "RelatedCases": null,
-        "GoodMotions": []
+    "case_metadata": {
+        "county": "hays",
+        "cause_number": "CR-17-5152-C",
+        "earliest_charge_date": "2015-10-25",
+        "has_evidence_of_representation": false,
+        "related_cases": null,
+        "good_motions": []
     },
-    "DefendantInformation": {
-        "DefendantName": "Xxxxxx, Zzzzzz",
-        "Sex": "Female",
-        "Race": "White",
-        "DateOfBirth": "DOB: 02/15/1997",
-        "Height": "5'6\",",
-        "Weight": "200",
-        "DefendantAddress": "876 Main St Natalia, TX 78059",
-        "SID": "TX03816410"
+    "defendant_information": {
+        "defendant_name": "Xxxxxx, Zzzzzz",
+        "sex": "Female",
+        "race": "White",
+        "date_of_birth": "DOB: 02/15/1997",
+        "height": "5'6\",",
+        "weight": "200",
+        "defendant_address": "876 Main St Natalia, TX 78059",
+        "sid": "TX03816410"
     },
-    "DefenseAttorneyInformation": {
-        "DefenseAttorney": "Richard Jones",
-        "DefenseAttorneyPhoneNumber": "512-632-2433(W)",
-        "AppointedOrRetained": "Court Appointed",
-        "DefenseAttorneyHash": "9083bb693e33919c"
+    "defense_attorney_information": {
+        "defense_attorney": "Richard Jones",
+        "defense_attorney_phone_number": "512-632-2433(W)",
+        "appointed_or_retained": "Court Appointed",
+        "defense_attorney_hash": ""
     },
-    "StateInformation": {
-        "ProsecutingAttorney": "Yuuuuu Haaaaa",
-        "ProsecutingAttorneyPhoneNumber": "512-362-7711(W)"
+    "state_information": {
+        "prosecuting_attorney": "Yuuuuu Haaaaa",
+        "prosectuing_attorney_phone_number": "512-362-7711(W)"
     },
-    "ChargeInformation": [
+    "charge_information": [
         {
-            "ChargeId": 0,
-            "ChargeLevel": "Second Degree Felony",
-            "OrignalCharge": "AGGRAVATED ASSAULT WITH A DEADLY WEAPON",
-            "Statute": "22.02(a)(2)",
-            "IsPrimaryCharge": true,
-            "ChargeDate": "2015-10-25",
+            "charge_id": 0,
+            "charge_level": "Second Degree Felony",
+            "orignal_charge": "AGGRAVATED ASSAULT WITH A DEADLY WEAPON",
+            "statute": "22.02(a)(2)",
+            "is_primary_charge": true,
+            "charge_date": "2015-10-25",
             "charge_name": "AGGRAVATED ASSAULT WITH A DEADLY WEAPON",
             "uccs_code": "1200",
             "charge_desc": "Aggravated Assault",
@@ -48,11 +48,11 @@
             "offense_type_desc": "Violent"
         }
     ],
-    "DispositionInformation": [
+    "disposition_information": [
         {
             "date": "12/06/2016",
             "event": "Disposition",
-            "judicial officer": "Boyer, Bruce",
+            "judicial_officer": "Boyer, Bruce",
             "details": [
                 {
                     "charge": "1. AGGRAVATED ASSAULT WITH A DEADLY WEAPON",
@@ -63,7 +63,7 @@
         {
             "date": "11/04/2019",
             "event": "Amended Disposition",
-            "judicial officer": "Boyer, Bruce) Reason: Community Supervision Extende",
+            "judicial_officer": "Boyer, Bruce) Reason: Community Supervision Extende",
             "details": [
                 {
                     "charge": "1. AGGRAVATED ASSAULT WITH A DEADLY WEAPON",
@@ -72,7 +72,7 @@
             ]
         }
     ],
-    "EventsAndHearings": [
+    "events": [
         [
             "08/12/2024",
             "Motion to Adjudicate",

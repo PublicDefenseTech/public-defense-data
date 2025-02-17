@@ -114,7 +114,7 @@ class CleanTestCase(unittest.TestCase):
 
     def test_redact_cause_number(self):
         # Test case 1: Normal input and consistency
-        input_dict = {"Case Metadata":{"cause_number": "123-ABC-456"}}
+        input_dict = {"case_metadata":{"cause_number": "123-ABC-456"}}
         result1 = self.cleaner.redact_cause_number(input_dict)
         result2 = self.cleaner.redact_cause_number(input_dict)
     
@@ -123,12 +123,12 @@ class CleanTestCase(unittest.TestCase):
         self.assertEqual(result1, result2)  # Ensure consistent hashing
     
         # Test case 2: Different input produces different hash
-        input_dict2 = {"Case Metadata":{"cause_number": "789-XYZ-012"}}
+        input_dict2 = {"case_metadata":{"cause_number": "789-XYZ-012"}}
         result3 = self.cleaner.redact_cause_number(input_dict2)
         self.assertNotEqual(result1, result3)
     
         # Test case 3: Empty input
-        self.assertNotEqual(self.cleaner.redact_cause_number({"Case Metadata":{"cause_number": ""}}), result1)
+        self.assertNotEqual(self.cleaner.redact_cause_number({"case_metadata":{"cause_number": ""}}), result1)
     
         # Test case 4: Missing 'code' key
         with self.assertRaises(KeyError):
@@ -147,8 +147,8 @@ class CleanTestCase(unittest.TestCase):
         processed_charges, earliest_date = self.cleaner.process_charges(charges, charge_mapping)
 
         self.assertEqual(len(processed_charges), 2)
-        self.assertEqual(processed_charges[0]['ChargeDate'], "2023-12-01")
-        self.assertEqual(processed_charges[1]['ChargeDate'], "2023-11-15")
+        self.assertEqual(processed_charges[0]['charge_date'], "2023-12-01")
+        self.assertEqual(processed_charges[1]['charge_date'], "2023-11-15")
         self.assertEqual(earliest_date, "2023-11-15")
 
         # Test invalid date
@@ -192,13 +192,13 @@ class CleanTestCase(unittest.TestCase):
 
         with open(output_file_path, 'r') as f:
             output_data = json.load(f)
-            self.assertTrue("CaseMetadata" in output_data)
-            self.assertTrue("DefendantInformation" in output_data)
-            self.assertTrue("ChargeInformation" in output_data)
-            self.assertTrue("ParsingDate" in output_data['ParseMetadata'])
-            self.assertTrue("HTMLHash" in output_data['ParseMetadata'])
-            self.assertTrue("GoodMotions" in output_data['CaseMetadata'])
-            self.assertTrue("CauseNumberHashed" in output_data['ParseMetadata'])
+            self.assertTrue("case_metadata" in output_data)
+            self.assertTrue("defendant_information" in output_data)
+            self.assertTrue("charge_information" in output_data)
+            self.assertTrue("parsing_date" in output_data['parse_metadata'])
+            self.assertTrue("html_hash" in output_data['parse_metadata'])
+            self.assertTrue("good_motions" in output_data['case_metadata'])
+            self.assertTrue("cause_number_hashed" in output_data['parse_metadata'])
 
     # Will need 
     """@patch("os.listdir", return_value=["case1.json", "case2.json"])

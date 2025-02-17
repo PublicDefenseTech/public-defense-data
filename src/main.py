@@ -95,19 +95,19 @@ class Orchestrator:
         for c in self.counties:
             c = c.lower()
             self.logger.info(f"Starting to scrape, parse, clean, and update this county: {c}")
-            scraper.Scraper().scrape(county = c,
+            """scraper.Scraper().scrape(county = c,
                                     start_date = self.start_date,
                                     end_date = self.end_date,
                                     court_calendar_link_text = None,
                                     case_number = None,
                                     case_html_path = None,
                                     judicial_officers = None,
-                                    ms_wait = None)
+                                    ms_wait = None)"""
             #src/parser
-            parser.Parser().parse(county = c,
+            """parser.Parser().parse(county = c,
                             case_number = None,
                             parse_single_file = False,
-                            test=False)
+                            test=False)"""
             #src/cleaner
             cleaner.Cleaner().clean(county = c)
             #src/updater
