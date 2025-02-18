@@ -233,7 +233,7 @@ class Cleaner:
             },
             "state_information": {
                 "prosecuting_attorney": input_dict["state_information"]["prosecuting_attorney"],
-                "prosectuing_attorney_phone_number": input_dict["state_information"]["prosecuting_attorney_phone_number"]
+                "prosecuting_attorney_phone_number": input_dict["state_information"]["prosecuting_attorney_phone_number"]
             },
 
             "charge_information": [],

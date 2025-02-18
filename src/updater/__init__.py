@@ -64,29 +64,29 @@ class Updater():
     def create_tables(self, cursor):
         queries = [
             """
+            CREATE TABLE IF NOT EXISTS parse_metadata (
+                id SERIAL PRIMARY KEY,
+                parsing_date DATE,
+                html_hash TEXT,
+                odyssey_id TEXT,
+                cause_number_hashed TEXT,
+                version INTEGER
+            )""",
+            """
             CREATE TABLE IF NOT EXISTS case_metadata (
                 id SERIAL PRIMARY KEY,
+                parse_id INTEGER REFERENCES parse_metadata(id),
                 county TEXT,
                 cause_number TEXT,
                 earliest_charge_date DATE,
                 has_evidence_of_representation BOOLEAN,
                 good_motions TEXT
             )""",
-"""
+            """
             CREATE TABLE IF NOT EXISTS related_cases (
                 id SERIAL PRIMARY KEY,
                 case_id INTEGER REFERENCES case_metadata(id),
                 related_case TEXT
-            )""",
-            """
-            CREATE TABLE IF NOT EXISTS parse_metadata (
-                id SERIAL PRIMARY KEY,
-                case_id INTEGER REFERENCES case_metadata(id),
-                parsing_date DATE,
-                html_hash TEXT,
-                odyssey_id TEXT,
-                cause_number_hashed TEXT,
-                version INTEGER
             )""",
             """
             CREATE TABLE IF NOT EXISTS defendants (
@@ -178,7 +178,7 @@ class Updater():
             self.logger.info(f"Version: Duplicate. Not adding. Case with matching HTML hash exists. : {html_hash}")
             return -1
         #Get existing rows with matching cause_number
-        cause_number = case_metadata['case_number']
+        cause_number = case_metadata['cause_number']
         query = f"SELECT * FROM case_metadata WHERE cause_number = %s;"
         cursor.execute(query, (cause_number,))
         existing_cause_rows = cursor.fetchall()
@@ -196,13 +196,29 @@ class Updater():
                 version = highest_version[-1] + 1
                 return version
 
-    def insert_case(self, cursor, case_data):
+    def insert_parse_metadata(self, cursor, version, parse_metadata):
+        cursor.execute("""INSERT INTO parse_metadata (parsing_date, html_hash, odyssey_id, cause_number_hashed, version)
+        VALUES (%s, %s, %s, %s, %s)""", 
+        (
+            parse_metadata['parsing_date'],
+            parse_metadata['html_hash'],
+            parse_metadata['odyssey_id'],
+            parse_metadata['cause_number_hashed'],
+            version
+        )
+        )
+        cursor.execute("SELECT lastval()") # PostgreSQL specific. Use the appropriate method for your DB.
+        parse_id = cursor.fetchone()[0]
+        return parse_id
+
+    def insert_case(self, cursor, parse_id, case_data):
         cursor.execute(
             """
-            INSERT INTO case_metadata (county, cause_number, earliest_charge_date, has_evidence_of_representation, good_motions)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO case_metadata (parse_id, county, cause_number, earliest_charge_date, has_evidence_of_representation, good_motions)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id""",
             (
+                parse_id,
                 case_data["county"],
                 case_data["cause_number"],
                 case_data["earliest_charge_date"],
@@ -210,26 +226,14 @@ class Updater():
                 case_data["good_motions"],
             )
         )
-        return cursor.fetchone()[0]
+        cursor.execute("SELECT lastval()") # PostgreSQL specific. Use the appropriate method for your DB.
+        case_id = cursor.fetchone()[0]
+        return case_id
 
     def insert_related_cases(self, cursor, case_id, related_cases):
         if related_cases:
             for related_case in related_cases:
                 cursor.execute("INSERT INTO related_cases (case_id, related_case) VALUES (%s, %s)", (case_id, related_case))
-
-    def insert_parse_metadata(self, cursor, case_id, version, parse_metadata):
-        if parse_metadata:
-            cursor.execute("""INSERT INTO parse_metadata (case_id, parsing_date, html_hash, odyssey_id, cause_number_hashed, version)
-            VALUES (%s, %s, %s, %s, %s, %s)""", 
-            (
-                case_id,
-                parse_metadata['parsing_date'],
-                parse_metadata['html_hash'],
-                parse_metadata['odyssey_id'],
-                parse_metadata['cause_number_hashed'],
-                version
-            )
-            )
 
     def insert_defendant(self, cursor, case_id, defendant_data):
         if defendant_data:
@@ -269,7 +273,7 @@ class Updater():
         if state_information_data:
             cursor.execute(
                 """
-                INSERT INTO defense_attorneys (case_id, prosecuting_attorney, prosecuting_attorney_phone) 
+                INSERT INTO state_information (case_id, prosecuting_attorney, prosecuting_attorney_phone) 
                 VALUES (%s, %s, %s)""",
                 (
                     case_id,
@@ -339,11 +343,12 @@ class Updater():
                 data = json.load(file)
                 version = self.add_version(cursor, data['parse_metadata'], data['case_metadata'])
                 if version > 0: # Is a new or updated case.
-                    case_id = self.insert_case(cursor, data['case_metadata'])
+                    parse_id = self.insert_parse_metadata(cursor, version, data["parse_metadata"])
+                    case_id = self.insert_case(cursor, parse_id, data['case_metadata'])
                     self.insert_related_cases(cursor, case_id, data['case_metadata'].get("related_cases", []))
-                    self.insert_parse_metadata(cursor, case_id, version, data["parse_metadata"])
                     self.insert_defendant(cursor, case_id, data["defendant_information"])
                     self.insert_defense_attorney(cursor, case_id, data["defense_attorney_information"])
+                    self.insert_state_information(cursor, case_id, data['state_information'])
                     self.insert_charges(cursor, case_id, data["charge_information"])
                     self.insert_dispositions(cursor, case_id, data["disposition_information"])
                     self.insert_events(cursor, case_id, data["events"])
