@@ -152,9 +152,9 @@ class CleanTestCase(unittest.TestCase):
         self.assertEqual(earliest_date, "2023-11-15")
 
         # Test invalid date
-        charges_invalid_date = [{"level": "Misdemeanor", "charges": "Charge1", "statute": "123", "date": "invalid"}]
+        charges_invalid_date = [{"level": "Misdemeanor", "charges": "Charge3", "statute": "123", "date": "invalid"}]
         processed_charges, earliest_date = self.cleaner.process_charges(charges_invalid_date, charge_mapping)
-        self.assertEqual(len(processed_charges), 0)
+        self.assertEqual(len(processed_charges), 1)
         self.assertEqual(earliest_date, "")
     
     def test_contains_good_motion(self):

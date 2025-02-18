@@ -1,6 +1,6 @@
 {
     "parse_metadata": {
-        "parsing_date": "2025-02-17",
+        "parsing_date": "2025-02-18",
         "html_hash": "8d4a80173c700b37",
         "odyssey_id": "test_123456",
         "cause_number_hashed": "871239500b7fe2fd"
@@ -27,11 +27,11 @@
         "defense_attorney": "Richard Jones",
         "defense_attorney_phone_number": "512-632-2433(W)",
         "appointed_or_retained": "Court Appointed",
-        "defense_attorney_hash": ""
+        "defense_attorney_hash": "9083bb693e33919c"
     },
     "state_information": {
         "prosecuting_attorney": "Yuuuuu Haaaaa",
-        "prosectuing_attorney_phone_number": "512-362-7711(W)"
+        "prosecuting_attorney_phone_number": "512-362-7711(W)"
     },
     "charge_information": [
         {

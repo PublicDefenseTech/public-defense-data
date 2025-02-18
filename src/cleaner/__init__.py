@@ -134,16 +134,21 @@ class Cleaner:
                 )
             except ValueError:
                 self.logger.error(f"Error parsing date for charge: {charge}")
-                continue
 
             # Try to map the charge to UMich data
             try:
                 charge_dict.update(charge_mapping[charge["charges"]])
+                processed_charges.append(charge_dict)
             except KeyError:
                 self.logger.warning(f"Couldn't find this charge: {charge['charges']}")
-                continue
-
-            processed_charges.append(charge_dict)
+                charge_dict.update({
+                    "charge_name": charge['charges'],
+                    "uccs_code": "Unknown",
+                    "charge_desc": "Unknown",
+                    "offense_category_desc": "Unknown",
+                    "offense_type_desc": "Unknown"
+                })
+                processed_charges.append(charge_dict)
 
         # Find the earliest charge date
         if charge_dates:
@@ -323,4 +328,12 @@ class Cleaner:
             self.logger.error(f"Traceback: {traceback.format_exc()}")
 
 if __name__ == '__main__':
-    Cleaner().clean()
+    C = Cleaner()
+    C.clean()
+
+    # For testing specific files within the production data folders
+    """C.process_single_case(
+        case_json_folder_path = C.get_or_create_folder_path('hays', 'case_json'),
+        case_json_filename = '13249926.json',
+        cleaned_folder_path = C.get_or_create_folder_path('hays', 'case_json_cleaned'),
+    )"""
