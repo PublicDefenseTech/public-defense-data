@@ -35,3 +35,9 @@ Follow these steps to launch the dashboard:
 5.  **Access the Dashboard:**
     * Open your web browser.
     * Enter the address `http://localhost:5000/` in the address bar and press Enter.
+
+Log Data Page Example
+![image](https://github.com/user-attachments/assets/cfa6dc07-b94f-49e6-a1e2-b151727d8aaf)
+
+Database Table Viewer Example
+![image](https://github.com/user-attachments/assets/0ca1c8df-39c7-454c-a28d-7289cc8e50ea)
