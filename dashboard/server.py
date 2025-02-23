@@ -89,19 +89,23 @@ def get_log_summary():
     except FileNotFoundError:
         return jsonify({"error": "File not found"}), 404
 
-@app.route('/get_log_data/<filename>') # New route to get log file content
+@app.route('/get_log_data/<filename>')
 def get_log_data(filename):
     file_path = f"../logs/{filename}"
     try:
         with open(file_path, 'r') as f:
             log_data = f.read()
-        return log_data, 200, {'Content-Type': 'text/plain'} # Important: Set content type
+        return log_data, 200, {'Content-Type': 'text/plain'}
     except FileNotFoundError:
         return "File not found", 404
 
 @app.route('/')
 def serve_dashboard():
-    return send_from_directory(app.static_folder, 'dashboard/log_table.html') # Serve from correct location
+    return send_from_directory('static', 'dashboard.html')
+
+@app.route('/log_table')
+def serve_log_table():
+    return send_from_directory('static', 'log_table.html')
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
