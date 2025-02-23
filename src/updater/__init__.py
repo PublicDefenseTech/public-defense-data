@@ -9,6 +9,7 @@ import sys
 
 class Updater():
     def __init__(self, county = "hays"):
+        # Create the file path of the output cleaned json
         self.county = county.lower()
         self.case_json_cleaned_folder_path = os.path.join(
             os.path.dirname(__file__), "..", "..", "data", self.county, "case_json_cleaned"
