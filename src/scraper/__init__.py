@@ -59,7 +59,7 @@ class Scraper:
         end_date = end_date if end_date is not None else '2024-07-01'
         court_calendar_link_text = court_calendar_link_text if court_calendar_link_text is not None else "Court Calendar"
         # case_number defaults to None if not provided
-        case_number = case_number 
+        case_number = case_number
         ssl = ssl if ssl is not None else True
         county = county if county is not None else 'hays'
         case_html_path = case_html_path if case_html_path is not None else os.path.join(os.path.dirname(__file__), "..", "..", "data", county, "case_html")
@@ -75,10 +75,22 @@ class Scraper:
         :returns: Configured logger instance.
         """
         # Configure the logger
-        logger = logging.getLogger(name=f"pid: {os.getpid()}")
+        logger = logging.getLogger(name=f"scraper: pid: {os.getpid()}")
         
         # Set up basic configuration for the logging system
         logging.basicConfig(level=logging.INFO)
+
+        scraper_log_path = os.path.join(os.path.dirname(__file__), "..", "..", "logs")
+        now = datetime.now()
+        # Format it as "DD-MM-YYYY - HH:MM"
+        formatted_date_time = now.strftime("%d-%m-%Y-%H.%M")
+        scraper_log_name = formatted_date_time + '_scraper_logger_log.txt'
+
+        file_handler = logging.FileHandler(os.path.join(scraper_log_path, scraper_log_name))
+        file_handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
                 
         return logger
 
@@ -112,24 +124,16 @@ class Scraper:
         
         return session
 
-    def make_directories(self, county: str, logger: logging.Logger, case_html_path) -> str:
-        """
-        Creates necessary directories for storing case HTML files.
-
-        This method constructs a path based on the county name and ensures that
-        all required directories in the path are created. If the directories already
-        exist, no action is taken.
-
-        :param county: The name of the county, used to create a specific directory path.
-        :param logger: Logger instance for logging errors.
-        :returns: The path to the created directories.
-        :raises OSError: If there is an error creating the directories.
-        """
-
-        # Create the directories if they do not exist
-        os.makedirs(case_html_path, exist_ok=True)
-        
-        return case_html_path
+    def make_directories(self, case_html_path: str, logger):
+        """Looks for a directory at the case_html_path location or creates it if it doesn't exist."""
+        try:
+            if not os.path.exists(case_html_path):
+                os.makedirs(case_html_path)
+                logger.info(f"Directory '{case_html_path}' created successfully.")
+            else:
+                logger.info(f"Directory '{case_html_path}' already exists.")
+        except OSError as e:
+            logger.error(f"Error creating directory '{case_html_path}': {e}")
 
     # get county portal URL, Odyssey version, and notes from csv file
     def get_ody_link(self, 
@@ -193,7 +197,7 @@ class Scraper:
         :raises AttributeError: If the class or method cannot be found.
         """
 
-        module_name = county
+        module_name = f"s_{county}"  # ex: 's_hays'
         class_name = f"Scraper{county.capitalize()}"
         method_name = f"scraper_{county}"
 
@@ -440,7 +444,7 @@ class Scraper:
             for anchor in results_soup.select('a[href^="CaseDetail"]')
         ]
         
-        logger.info(f"{len(case_urls)} entries found")
+        logger.info(f"scraper: {len(case_urls)} entries found")
         
         if case_urls:
             case_id = case_urls[0].split("=")[1]
@@ -454,7 +458,7 @@ class Scraper:
                 ms_wait=ms_wait,
             )
             
-            logger.info(f"{len(case_html)} response string length")
+            logger.info(f"scraper: {len(case_html)} response string length")
 
             with open(
                 os.path.join(case_html_path, f"{case_id}.html"), "w"
@@ -491,9 +495,9 @@ class Scraper:
         
         if not judicial_officers:
             judicial_officers = list(judicial_officer_to_ID.keys())
-            logger.info(f"No judicial officers specified, so scraping all of them: {len(judicial_officers)}")
+            logger.info(f"scraper: No judicial officers specified, so scraping all of them: {len(judicial_officers)}")
         else:
-            logger.info(f"Judicial officers were specified, so only scraping these: {judicial_officers}")            
+            logger.info(f"scraper: Judicial officers were specified, so only scraping these: {judicial_officers}")            
         
         return judicial_officers, judicial_officer_to_ID
 
@@ -584,7 +588,6 @@ class Scraper:
                 )
                 
                 scraper_instance, scraper_function = self.get_class_and_method(county, logger)
-                print(scraper_function)
                 scraper_function(base_url, results_soup, case_html_path, logger, session, ms_wait)
 
     def scrape(
@@ -596,18 +599,18 @@ class Scraper:
         end_date: str,
         court_calendar_link_text: Optional[str],
         case_number: Optional[str],
-        case_html_path: Optional[str]
+        case_html_path: Optional[str],
+        ssl: Optional[bool] = True
     ) -> None:
         ms_wait, start_date, end_date, court_calendar_link_text, case_number, ssl, county, case_html_path = self.set_defaults(
             ms_wait, start_date, end_date, court_calendar_link_text, case_number, ssl, county, case_html_path
         )
         
         logger = self.configure_logger()
-        county = self.format_county(county, logger)
-        session = self.create_session(logger)
+        county = self.format_county(county)
+        session = self.create_session(logger, ssl)
         
-        if case_html_path is None:
-            self.make_directories(county, logger)
+        self.make_directories(case_html_path, logger)
         
         base_url, odyssey_version, notes = self.get_ody_link(county, logger)
         main_page_html, main_soup = self.scrape_main_page(base_url, odyssey_version, session, notes, logger, ms_wait)

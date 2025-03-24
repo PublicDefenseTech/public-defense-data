@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Log Data Table</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        #logSummary {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+        }
+        #logSummary table {
+            width: 100%;
+        }
+        #tableData { /* Style for the detailed table container */
+            max-height: 200px; /* Same max-height as summary */
+            overflow-y: auto;
+            border: 1px solid #ccc;
+        }
+        #tableData table {
+            width: 100%;
+        }
+
+    </style>
+</head>
+<body>
+    <a href="/">Go to Local Database Tables</a>
+    <h1>Log Data</h1>
+    <h2>Log Summary</h2>
+
+    <div id="logSummary">
+        <table>
+            <thead>
+                <tr>
+                    <th>Log File</th>
+                    <th>Cases Processed</th>
+                    <th>Errors</th>
+                    <th>Warnings</th>
+                    <th>Date Range</th>
+                    <th>County</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <h2>Entry Summary</h2>
+    <label for="logSelect">Select Log:</label>
+    <select id="logSelect" onchange="loadLogData()">
+        <option value="">Select a log file</option>
+    </select>
+    <div id="tableData"></div>
+
+    <script>
+        async function getLogFiles() {
+            try {
+                const response = await fetch('/get_log_files');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const logFiles = await response.json();
+                const logSelect = document.getElementById('logSelect');
+                logSelect.innerHTML = '<option value="">Select a log file</option>';
+                logFiles.forEach(file => {
+                    const option = document.createElement('option');
+                    option.value = file;
+                    option.textContent = file;
+                    logSelect.appendChild(option);
+                });
+                loadLogSummary(logFiles);
+            } catch (error) {
+                console.error('Error fetching log files:', error);
+            }
+        }
+
+        async function loadLogSummary(logFiles) {
+            const summaryTable = document.querySelector('#logSummary table tbody');
+            summaryTable.innerHTML = '';
+
+            for (const file of logFiles) {
+                try {
+                    const response = await fetch(`/get_log_summary?file=${file}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const summary = await response.json();
+
+                    const row = summaryTable.insertRow();
+                    row.insertCell().textContent = file;
+                    row.insertCell().textContent = summary.cases;
+                    row.insertCell().textContent = summary.errors;
+                    row.insertCell().textContent = summary.warnings;
+                    row.insertCell().textContent = summary.date_range;
+                    row.insertCell().textContent = summary.county;
+
+                } catch (error) {
+                    console.error(`Error fetching summary for ${file}:`, error);
+                    const row = summaryTable.insertRow();
+                    row.insertCell().textContent = file;
+                    row.insertCell().colSpan = 5;
+                    row.insertCell().textContent = "Error fetching summary";
+                }
+            }
+        }
+
+        async function loadLogData() {
+            const logSelect = document.getElementById('logSelect');
+            const logFile = logSelect.value;
+            const tableDataDiv = document.getElementById('tableData');
+
+            if (!logFile) {
+                tableDataDiv.innerHTML = '';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/get_log_data/${logFile}`); // Fetch from the Flask route
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
+                }
+
+                const logData = await response.text();
+
+                try {
+                    const parsedData = parseLogData(logData);
+                    displayTable(parsedData);
+                } catch (parseError) {
+                    console.error('Error parsing log data:', parseError);
+                    tableDataDiv.innerHTML = `<p>Error parsing log data: ${parseError.message}</p>`;
+                    return;
+                }
+
+            } catch (error) {
+                console.error('Error fetching log file:', error);
+                tableDataDiv.innerHTML = `<p>Error fetching log file: ${error.message}</p>`;
+            }
+        }
+
+        function parseLogData(logData) {
+            const lines = logData.split('\n');
+            const data = [];
+            for (const line of lines) {
+                if (line.trim() === '') continue;
+                const parts = line.match(/(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2},\d{3}) - (\w+): pid: (\d+) - (\w+) - (.*)/);
+                if (parts) {
+                    const [, date, time, module, pid, level, message] = parts;
+                    data.push({ date, time, module, pid, level, message });
+                }
+            }
+            return data;
+        }
+
+        function displayTable(data) {
+            const tableDataDiv = document.getElementById('tableData');
+            tableDataDiv.innerHTML = '';
+            if (data.length === 0) {
+                tableDataDiv.innerHTML = '<p>No data found.</p>';
+                return;
+            }
+            const table = document.createElement('table');
+            const headerRow = document.createElement('tr');
+            for (const key in data[0]) {
+                const th = document.createElement('th');
+                th.textContent = key;
+                headerRow.appendChild(th);
+            }
+            table.appendChild(headerRow);
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                for (const key in row) {
+                    const td = document.createElement('td');
+                    td.textContent = row[key];
+                    tr.appendChild(td);
+                }
+                table.appendChild(tr);
+            });
+            tableDataDiv.appendChild(table);
+        }
+
+        getLogFiles();
+    </script>
+</body>
+</html>
