@@ -2,7 +2,7 @@ from typing import Dict, List
 from bs4 import BeautifulSoup
 import traceback
 from datetime import datetime
-from src.parser.models import *
+from parser.models import *
 from sqlmodel import SQLModel, Field, Relationship, create_engine, Session, select
 import xxhash
 import os
@@ -522,6 +522,21 @@ class ParserHays:
             )
             return version
 
+    def hash_html(self, html_tables):
+        if html_tables:
+            """
+            Why balance table is dropped before hashing:
+            The balance table is excluded from the hashing because
+            balance is updated as any costs are paid off. Otherwise,
+            the hash would change frequently and multiple versions
+            of the case would be captured that we don't want.
+            """
+            balance_table = html_tables[-1]
+            if "Balance Due" in balance_table.text:
+                balance_table.decompose()
+            html_hash = xxhash.xxh64(str(balance_table.text)).hexdigest()
+        return html_hash
+
     def parser_hays(
         self,
         county: str,
@@ -549,7 +564,7 @@ class ParserHays:
                     good_motions=None,
                     has_evidence_of_representation=None,
                     parsing_date=datetime.now().date(),
-                    html_hash=xxhash.xxh64(str(body)).hexdigest(),
+                    html_hash=self.hash_html(root_tables),
                     odyssey_id=odyssey_id,
                     court_case_number_hashed=xxhash.xxh64(
                         str(case_metadata_data["court_case_number"])

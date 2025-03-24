@@ -12,18 +12,21 @@ import parser
 import cleaner
 import updater
 
+
 class Orchestrator:
-    def __init__(self, 
-                 counties = None, 
-                 start_date = None, 
-                 end_date = None,
-                 court_calendar_link_text = None,
-                 case_number = None,
-                 case_html_path = None,
-                 judicial_officers = None,
-                 ms_wait = None,
-                 parse_single_file = False,
-                 test = False):
+    def __init__(
+        self,
+        counties=None,
+        start_date=None,
+        end_date=None,
+        court_calendar_link_text=None,
+        case_number=None,
+        case_html_path=None,
+        judicial_officers=None,
+        ms_wait=None,
+        parse_single_file=False,
+        test=False,
+    ):
 
         self.create_logs_folder()
         self.logger = self.configure_logger()
@@ -37,7 +40,10 @@ class Orchestrator:
             self.counties = []
             with open(
                 os.path.join(
-                    os.path.dirname(__file__), "..", "resources", "texas_county_data.csv"
+                    os.path.dirname(__file__),
+                    "..",
+                    "resources",
+                    "texas_county_data.csv",
                 ),
                 mode="r",
             ) as file_handle:
@@ -49,12 +55,12 @@ class Orchestrator:
             self.counties = counties
 
         if start_date is None:
-            self.start_date = '2024-01-01'
+            self.start_date = "2024-01-01"
         else:
             self.start_date = start_date
 
         if end_date is None:
-            self.end_date = '2024-01-31'
+            self.end_date = "2024-01-31"
         else:
             self.end_date = end_date
 
@@ -76,10 +82,14 @@ class Orchestrator:
         orchestrator_log_path = os.path.join(os.path.dirname(__file__), "..", "logs")
         now = datetime.now()
         formatted_date_time = now.strftime("%d-%m-%Y-%H.%M")
-        orchestrator_log_name = formatted_date_time + '_orchestrator_logger_log.txt'
-        file_handler = logging.FileHandler(os.path.join(orchestrator_log_path, orchestrator_log_name))
+        orchestrator_log_name = formatted_date_time + "_orchestrator_logger_log.txt"
+        file_handler = logging.FileHandler(
+            os.path.join(orchestrator_log_path, orchestrator_log_name)
+        )
         file_handler.setLevel(logging.DEBUG)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
         return logger
@@ -93,7 +103,7 @@ class Orchestrator:
     def file_reset(self, county):
         # File reset functionality (same as before)
         root_folder = os.path.join(os.path.dirname(__file__), "..", "data", county)
-        subfolders = ['case_html', 'case_json', 'case_json_cleaned']
+        subfolders = ["case_html", "case_json", "case_json_cleaned"]
         for subfolder in subfolders:
             folder_path = os.path.join(root_folder, subfolder)
             if os.path.exists(folder_path) and os.path.isdir(folder_path):
@@ -111,26 +121,35 @@ class Orchestrator:
         # Orchestration logic (same as before)
         for c in self.counties:
             c = c.lower()
-            self.logger.info(f"Starting to scrape, parse, clean, and update this county: {c}")
-            scraper.Scraper().scrape(county = c,
-                                    start_date = self.start_date,
-                                    end_date = self.end_date,
-                                    court_calendar_link_text = self.court_calendar_link_text,
-                                    case_number = self.case_number,
-                                    case_html_path = self.case_html_path,
-                                    judicial_officers = self.judicial_officers,
-                                    ms_wait = self.ms_wait)
-            parser.Parser().parse(county = c,
-                            case_number = self.case_number,
-                            parse_single_file = self.parse_single_file,
-                            test=self.test)
-            cleaner.Cleaner().clean(county = c)
-            updater.Updater(c).update()
-            self.logger.info(f"Completed with scraping, parsing, cleaning, and updating of this county: {c}")
+            self.logger.info(
+                f"Starting to scrape, parse, clean, and update this county: {c}"
+            )
+            scraper.Scraper().scrape(
+                county=c,
+                start_date=self.start_date,
+                end_date=self.end_date,
+                court_calendar_link_text=self.court_calendar_link_text,
+                case_number=self.case_number,
+                case_html_path=self.case_html_path,
+                judicial_officers=self.judicial_officers,
+                ms_wait=self.ms_wait,
+            )
+            parser.Parser().parse(
+                county=c,
+                case_number=self.case_number,
+                parse_single_file=self.parse_single_file,
+                test=self.test,
+            )
+            self.logger.info(
+                f"Completed with scraping, parsing, cleaning, and updating of this county: {c}"
+            )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Public Defense Data Orchestrator")
-    parser.add_argument("--counties", nargs="*", help="Counties to process (space-separated)")
+    parser.add_argument(
+        "--counties", nargs="*", help="Counties to process (space-separated)"
+    )
     parser.add_argument("--start_date", help="Start date (YYYY-MM-DD)")
     parser.add_argument("--end_date", help="End date (YYYY-MM-DD)")
     parser.add_argument("--court_calendar_link_text", help="Court calendar link text")
@@ -138,7 +157,9 @@ if __name__ == '__main__':
     parser.add_argument("--case_html_path", help="Case HTML path")
     parser.add_argument("--judicial_officers", help="Judicial officers")
     parser.add_argument("--ms_wait", type=int, help="Milliseconds wait")
-    parser.add_argument("--parse_single_file", action="store_true", help="Parse single file")
+    parser.add_argument(
+        "--parse_single_file", action="store_true", help="Parse single file"
+    )
     parser.add_argument("--test", action="store_true", help="Test mode")
 
     args = parser.parse_args()
@@ -154,5 +175,5 @@ if __name__ == '__main__':
         judicial_officers=args.judicial_officers,
         ms_wait=args.ms_wait,
         parse_single_file=args.parse_single_file,
-        test=args.test
+        test=args.test,
     ).orchestrate()

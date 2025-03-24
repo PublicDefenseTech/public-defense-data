@@ -8,16 +8,14 @@ from unittest.mock import patch, MagicMock, mock_open
 import tempfile
 from bs4 import BeautifulSoup
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..','..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-print(f'current directory: {current_dir}')
+print(f"current directory: {current_dir}")
 # Import all of the programs modules within the parent_dir
 import scraper
 import parser
-import cleaner
-import updater
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -25,12 +23,14 @@ project_root = os.path.dirname(parent_dir)
 
 SKIP_SLOW = os.getenv("SKIP_SLOW", "false").lower().strip() == "true"
 
+
 def log(
     message, level="INFO"
 ):  # Provide message and info level (optional, defaulting to info)
     # configure the logger
     log = logging.getLogger(__name__)
     log.info(message)
+
 
 class ScraperTestCase(unittest.TestCase):
     # Defaults for each program are set at the function level.

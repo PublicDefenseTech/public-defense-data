@@ -8,22 +8,21 @@ from unittest.mock import patch, MagicMock, mock_open
 import tempfile
 from bs4 import BeautifulSoup
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..','..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-print(f'current directory: {current_dir}')
+print(f"current directory: {current_dir}")
 # Import all of the programs modules within the parent_dir
 import scraper
 import parser
-import cleaner
-import updater
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 project_root = os.path.dirname(parent_dir)
 
 SKIP_SLOW = os.getenv("SKIP_SLOW", "false").lower().strip() == "true"
+
 
 class ParseTestCase(unittest.TestCase):
     def setUp(self):
@@ -45,7 +44,7 @@ class ParseTestCase(unittest.TestCase):
         instance, method = parser_instance.get_class_and_method(
             logger=self.mock_logger, county="hays", test=True
         )
-        self.assertIn('extract_rows', dir(instance))
+        self.assertIn("extract_rows", dir(instance))
 
     @patch("os.makedirs")
     def test_parser_directories_single_file(self, mock_makedirs):
@@ -156,7 +155,9 @@ class ParseTestCase(unittest.TestCase):
             updated_html_path, case_html_file_name, case_number, self.mock_logger
         )
 
-        self.assertEqual(result, f"{os.path.join(updated_html_path,case_html_file_name)}")
+        self.assertEqual(
+            result, f"{os.path.join(updated_html_path,case_html_file_name)}"
+        )
 
     @patch("builtins.open", new_callable=mock_open)
     def test_write_json_data(self, mock_open_func):
@@ -186,9 +187,8 @@ class ParseTestCase(unittest.TestCase):
 
         mock_open_func.assert_called_once_with(error_log_path, "w")
 
-    def test_parser_end_to_end(self, county="hays", case_number='123456'):
+    def test_parser_end_to_end(self, county="hays", case_number="123456"):
 
-        self.parser_instance.parse(county=county, 
-                     case_number=case_number, 
-                     parse_single_file=True,
-                     test = True)
+        self.parser_instance.parse(
+            county=county, case_number=case_number, parse_single_file=True, test=True
+        )
