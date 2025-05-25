@@ -197,9 +197,12 @@ class Scraper:
         :raises AttributeError: If the class or method cannot be found.
         """
 
-        module_name = f"s_{county}"  # ex: 's_hays'
-        class_name = f"Scraper{county.capitalize()}"
-        method_name = f"scraper_{county}"
+        #module_name = f"s_{county}"  # ex: 's_hays'
+        #class_name = f"Scraper{county.capitalize()}"
+        #method_name = f"scraper_{county}"
+        module_name = f"s_hays"
+        class_name = f"ScraperHays"
+        method_name = f"scraper_hays"
 
         # Add the current directory to the system path
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -597,10 +600,10 @@ class Scraper:
         ms_wait: int,
         start_date: str,
         end_date: str,
-        court_calendar_link_text: Optional[str],
-        case_number: Optional[str],
-        case_html_path: Optional[str],
-        ssl: Optional[bool] = True
+        court_calendar_link_text: Optional[str] = None,
+        case_number: Optional[str] = None,
+        case_html_path: Optional[str] = None,
+        ssl: bool = True
     ) -> None:
         ms_wait, start_date, end_date, court_calendar_link_text, case_number, ssl, county, case_html_path = self.set_defaults(
             ms_wait, start_date, end_date, court_calendar_link_text, case_number, ssl, county, case_html_path

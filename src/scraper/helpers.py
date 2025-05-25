@@ -1,12 +1,13 @@
 import os, sys
 import requests
 from time import sleep
-from datetime import date
+from datetime import date, datetime
 from logging import Logger
 from typing import Dict, Optional, Tuple, Literal
 from enum import Enum
 
-#This is called debug and quit.
+
+# This is called debug and quit.
 def write_debug_and_quit(
     page_text: str, logger: Logger, verification_text: Optional[str] = None
 ) -> None:
@@ -18,9 +19,25 @@ def write_debug_and_quit(
         )
         + f" Aborting. Writing /data/debug.html with response. May not be HTML."
     )
-    with open(os.path.join(os.path.dirname(__file__), "..","..","logging", f"debug.html"), "w") as file_handle:
+    now_d = datetime.now().strftime("%Y-%m-%d")
+    now_s = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
+    file_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "logs",
+        "scrape_errors_" + now_d,
+        "html_scrape_errors_" + now_s + ".html",
+    )
+    directory = os.path.dirname(file_path)  # Get the directory part of the path
+    if not os.path.exists(directory):
+        os.makedirs(directory)  # Corrected: create the directory, not the file path
+    with open(
+        file_path,
+        "w",
+    ) as file_handle:
         file_handle.write(page_text)
-    sys.exit(1)
+
 
 # helper function to make form data
 def create_search_form_data(
@@ -52,13 +69,16 @@ def create_search_form_data(
         )
     return form_data
 
-def create_single_case_search_form_data(hidden_values: Dict[str, str], case_number: str):
+
+def create_single_case_search_form_data(
+    hidden_values: Dict[str, str], case_number: str
+):
     form_data = {}
     form_data.update(hidden_values)
-    os_specific_time_format = "%#m/%#d/%Y" if os.name == 'nt' else "%-m/%-d/%Y"
+    os_specific_time_format = "%#m/%#d/%Y" if os.name == "nt" else "%-m/%-d/%Y"
     form_data.update(
         {
-            "__EVENTTARGET":"",
+            "__EVENTTARGET": "",
             "SearchBy": "0",
             "DateSettingOnAfter": "1/1/1970",
             "DateSettingOnBefore": date.today().strftime(os_specific_time_format),
@@ -66,7 +86,7 @@ def create_single_case_search_form_data(hidden_values: Dict[str, str], case_numb
             "SearchMode": "CASENUMBER",
             "CourtCaseSearchValue": case_number,
             "CaseCategories": "",
-            "cboJudOffc":"38501",
+            "cboJudOffc": "38501",
         }
     )
     return form_data
@@ -115,7 +135,7 @@ def request_page_with_retry(
             failed = True
         if failed:
             if response == None:
-                response_text = 'No response from Odyssey.'
+                response_text = "No response from Odyssey."
             else:
                 response_text = response.text
             write_debug_and_quit(

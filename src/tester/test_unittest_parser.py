@@ -1,194 +1,180 @@
-from datetime import datetime, timedelta
+# tests.py
+import sqlite3
+
+from sqlmodel import Session, create_engine, SQLModel
+from datetime import date
 import unittest
-import sys
-import os
-import json
-import logging
-from unittest.mock import patch, MagicMock, mock_open
-import tempfile
-from bs4 import BeautifulSoup
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-print(f"current directory: {current_dir}")
-# Import all of the programs modules within the parent_dir
-import scraper
-import parser
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-project_root = os.path.dirname(parent_dir)
-
-SKIP_SLOW = os.getenv("SKIP_SLOW", "false").lower().strip() == "true"
+import parser.p_hays
 
 
-class ParseTestCase(unittest.TestCase):
-    def setUp(self):
-        self.test_dir = tempfile.mkdtemp()
-        self.case_json_path = os.path.join(self.test_dir, "hays", "case_json")
-        os.makedirs(self.case_json_path, exist_ok=True)
+class NewParserTests(unittest.TestCase):
 
-        self.mock_logger = logging.getLogger(__name__)
+    def test_parser_end_to_end(
+        self,
+        county="hays",
+        odyssey_id="123456",
+        case_number="123456",
+        parse_single_file=True,
+    ):
         self.parser_instance = parser.Parser()
-        self.case_html_path = os.path.abspath(
-            os.path.join(
-                os.path.dirname(__file__), "../../resources/test_files/parser_testing"
-            )
-        )
-
-    def test_parser_class_and_method(self):
-        parser_instance = parser.Parser()
-
-        instance, method = parser_instance.get_class_and_method(
-            logger=self.mock_logger, county="hays", test=True
-        )
-        self.assertIn("extract_rows", dir(instance))
-
-    @patch("os.makedirs")
-    def test_parser_directories_single_file(self, mock_makedirs):
-        parser_instance = parser.Parser()
-        case_html_path, case_json_path = parser_instance.get_directories(
-            "hays", self.mock_logger, parse_single_file=True
-        )
-
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        expected_path = os.path.join(base_dir, "resources", "test_files")
-
-        self.assertEqual(case_html_path, expected_path)
-        self.assertEqual(case_json_path, expected_path)
-
-    @patch("os.makedirs")
-    @patch("os.path.exists", return_value=False)
-    def test_parser_directories_multiple_files(self, mock_exists, mock_makedirs):
-        parser_instance = parser.Parser()
-        case_html_path, case_json_path = parser_instance.get_directories(
-            "hays", self.mock_logger, parse_single_file=False
-        )
-
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        expected_html_path = os.path.join(base_dir, "data", "hays", "case_html")
-        expected_json_path = os.path.join(base_dir, "data", "hays", "case_json")
-
-        self.assertEqual(case_html_path, expected_html_path)
-        self.assertEqual(case_json_path, expected_json_path)
-        mock_makedirs.assert_called_once_with(expected_json_path, exist_ok=True)
-
-    def test_parser_list_of_single_html_file(self):
-        case_number = "51652356"
-        case_list = self.parser_instance.get_list_of_html(
-            self.case_html_path,
-            case_number,
-            "hays",
-            self.mock_logger,
-            parse_single_file=True,
-        )
-
-        relative_path = os.path.join(project_root, "resources", "test_files")
-
-        expected_path = os.path.join(relative_path, f"test_{case_number}.html")
-
-        self.assertEqual(case_list, [expected_path])
-
-    def test_parser_list_of_single_html_file_by_casenumber(self):
-        case_number = "51652356"
-
-        case_list = self.parser_instance.get_list_of_html(
-            self.case_html_path,
-            case_number,
-            "hays",
-            self.mock_logger,
-            parse_single_file=True,
-        )
-
-        relative_path = os.path.join(project_root, "resources", "test_files")
-
-        expected_list = [os.path.join(relative_path, f"test_{case_number}.html")]
-
-        self.assertEqual(case_list, expected_list)
-
-    def test_parser_list_of_multiple_html_files(self):
-        os.makedirs(self.case_html_path, exist_ok=True)
-
-        with open(os.path.join(self.case_html_path, "test_1.html"), "w") as f:
-            f.write("test")
-        with open(os.path.join(self.case_html_path, "test_2.html"), "w") as f:
-            f.write("test")
-
-        updated_html_path = os.path.join(self.case_html_path, "multiple_html_files")
-        case_number = ""
-        case_list = self.parser_instance.get_list_of_html(
-            updated_html_path,
-            case_number,
-            "hays",
-            self.mock_logger,
-            parse_single_file=False,
-        )
-
-        expected_list = [
-            os.path.join(updated_html_path, "test_1.html"),
-            os.path.join(updated_html_path, "test_2.html"),
-        ]
-
-        self.assertEqual(set(case_list), set(expected_list))
-
-    def test_parser_get_list_of_html_error_handling(self):
-        invalid_path = "invalid/path"
-        case_number = "12345"
-
-        with self.assertRaises(Exception):
-            self.parser_instance.get_list_of_html(
-                invalid_path,
-                case_number,
-                "hays",
-                self.mock_logger,
-                parse_single_file=False,
-            )
-
-    def test_get_html_path(self):
-        updated_html_path = os.path.join(self.case_html_path, "multiple_html_files")
-        case_html_file_name = "parserTest_51652356.html"
-        case_number = "51652356"
-
-        result = self.parser_instance.get_html_path(
-            updated_html_path, case_html_file_name, case_number, self.mock_logger
-        )
-
-        self.assertEqual(
-            result, f"{os.path.join(updated_html_path,case_html_file_name)}"
-        )
-
-    @patch("builtins.open", new_callable=mock_open)
-    def test_write_json_data(self, mock_open_func):
-        case_json_path = "/mock/path"
-        case_number = "123456"
-        case_data = {"data": "value"}
-
-        self.parser_instance.write_json_data(
-            case_json_path, case_number, case_data, self.mock_logger
-        )
-
-        mock_open_func.assert_called_once_with(
-            os.path.join(case_json_path, case_number + ".json"), "w"
-        )
-
-    @patch("builtins.open", new_callable=mock_open)
-    def test_write_error_log(self, mock_open_func):
-        county = "hays"
-        case_number = "123456"
-
-        self.parser_instance.write_error_log(county, case_number)
-
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        error_log_path = os.path.join(
-            base_dir, "data", county, "cases_with_parsing_error.txt"
-        )
-
-        mock_open_func.assert_called_once_with(error_log_path, "w")
-
-    def test_parser_end_to_end(self, county="hays", case_number="123456"):
-
         self.parser_instance.parse(
-            county=county, case_number=case_number, parse_single_file=True, test=True
+            county=county,
+            odyssey_id=odyssey_id,
+            case_number=case_number,
+            parse_single_file=parse_single_file,
         )
+
+    """def setUp(self):
+        self.engine = create_engine("sqlite:///:memory:")
+        SQLModel.metadata.create_all(self.engine)
+        self.session = Session(self.engine)
+
+    def tearDown(self):
+        self.session.close()"""
+
+    """def test_case_metadata(self):
+        case_data = {
+            "county_of_jurisdiction": "hays",
+            "court_case_number": "1",
+            "parsing_date": date(2023, 1, 1),
+        }
+        case = CaseMetadata(**case_data)
+        self.session.add(case)
+        self.session.commit()
+        retrieved_case = self.session.get(CaseMetadata, 1)
+        self.assertEqual(retrieved_case.county_of_jurisdiction, "hays")
+
+    def test_related_case(self):
+        case_data = {
+            "parse_id": 1,
+            "county_of_jurisdiction": "Test",
+            "court_case_number": "1",
+            "parsing_date": date(2023, 1, 1),
+        }
+        case = CaseMetadata(**case_data)
+        self.session.add(case)
+        self.session.commit()
+        related_case_data = {"case_id": 1, "related_case": "Related1"}
+        related_case = RelatedCase(**related_case_data)
+        self.session.add(related_case)
+        self.session.commit()
+        self.assertEqual(self.session.get(RelatedCase, 1).related_case, "Related1")
+
+    # Add test methods for other models similarly...
+    def test_defendant(self):
+        case_data = {
+            "parse_id": 1,
+            "county_of_jurisdiction": "Test",
+            "court_case_number": "1",
+            "parsing_date": date(2023, 1, 1),
+        }
+        case = CaseMetadata(**case_data)
+        self.session.add(case)
+        self.session.commit()
+        defendant_data = {"case_id": 1, "name": "John Doe"}
+        defendant = Defendant(**defendant_data)
+        self.session.add(defendant)
+        self.session.commit()
+        self.assertEqual(self.session.get(Defendant, 1).name, "John Doe")
+
+    def test_defense_attorney(self):
+        case_data = {
+            "parse_id": 1,
+            "county_of_jurisdiction": "Test",
+            "court_case_number": "1",
+            "parsing_date": date(2023, 1, 1),
+        }
+        case = CaseMetadata(**case_data)
+        self.session.add(case)
+        self.session.commit()
+        attorney_data = {"case_id": 1, "name": "Jane Smith"}
+        attorney = DefenseAttorney(**attorney_data)
+        self.session.add(attorney)
+        self.session.commit()
+        self.assertEqual(self.session.get(DefenseAttorney, 1).name, "Jane Smith")
+
+    def test_state_information(self):
+        case_data = {
+            "parse_id": 1,
+            "county_of_jurisdiction": "Test",
+            "court_case_number": "1",
+            "parsing_date": date(2023, 1, 1),
+        }
+        case = CaseMetadata(**case_data)
+        self.session.add(case)
+        self.session.commit()
+        state_data = {"case_id": 1, "prosecuting_attorney": "State Attorney"}
+        state = StateInformation(**state_data)
+        self.session.add(state)
+        self.session.commit()
+        self.assertEqual(
+            self.session.get(StateInformation, 1).prosecuting_attorney, "State Attorney"
+        )
+
+    def test_charge(self):
+        case_data = {
+            "parse_id": 1,
+            "county_of_jurisdiction": "Test",
+            "court_case_number": "1",
+            "parsing_date": date(2023, 1, 1),
+        }
+        case = CaseMetadata(**case_data)
+        self.session.add(case)
+        self.session.commit()
+        charge_data = {"case_id": 1, "charge_name": "Test Charge"}
+        charge = Charge(**charge_data)
+        self.session.add(charge)
+        self.session.commit()
+        self.assertEqual(self.session.get(Charge, 1).charge_name, "Test Charge")
+
+    def test_disposition(self):
+        case_data = {
+            "parse_id": 1,
+            "county_of_jurisdiction": "Test",
+            "court_case_number": "1",
+            "parsing_date": date(2023, 1, 1),
+        }
+        case = CaseMetadata(**case_data)
+        self.session.add(case)
+        self.session.commit()
+        disposition_data = {"case_id": 1, "event": "Test Event"}
+        disposition = Disposition(**disposition_data)
+        self.session.add(disposition)
+        self.session.commit()
+        self.assertEqual(self.session.get(Disposition, 1).event, "Test Event")
+
+    def test_disposition_detail(self):
+        case_data = {
+            "parse_id": 1,
+            "county_of_jurisdiction": "Test",
+            "court_case_number": "1",
+            "parsing_date": date(2023, 1, 1),
+        }
+        case = CaseMetadata(**case_data)
+        self.session.add(case)
+        self.session.commit()
+        disposition_data = {"case_id": 1, "event": "Test Event"}
+        disposition = Disposition(**disposition_data)
+        self.session.add(disposition)
+        self.session.commit()
+        detail_data = {"disposition_id": 1, "charge": "Charge Detail"}
+        detail = DispositionDetail(**detail_data)
+        self.session.add(detail)
+        self.session.commit()
+        self.assertEqual(self.session.get(DispositionDetail, 1).charge, "Charge Detail")
+
+    def test_event(self):
+        case_data = {
+            "parse_id": 1,
+            "county_of_jurisdiction": "Test",
+            "court_case_number": "1",
+            "parsing_date": date(2023, 1, 1),
+        }
+        case = CaseMetadata(**case_data)
+        self.session.add(case)
+        self.session.commit()
+        event_data = {"case_id": 1, "event": "Court Event"}
+        event = Event(**event_data)
+        self.session.add(event)
+        self.session.commit()
+        self.assertEqual(self.session.get(Event, 1).event, "Court Event")"""

@@ -7,10 +7,9 @@ This is a scraper to collect and process public case records from the Tyler Tech
 ### Install toolchain
 
 1. Clone this repo and navigate to it.
-   - `git clone https://github.com/open-austin/indigent-defense-stats`
-   - `cd indigent-defense-stats`
-2. Install Pyenv if not already installed ([linux, mac](https://github.com/pyenv/pyenv), or [windows](https://github.com/pyenv-win/pyenv-win))
-3. Run `pyenv install` to get the right Python version
+   - `git clone https://github.com/Public-Defense-Tech/public-defense-data`
+   - `cd public-defende-data`
+2. Optional: Install Pyenv if not already installed ([linux, mac](https://github.com/pyenv/pyenv), or [windows](https://github.com/pyenv-win/pyenv-win)). Run `pyenv install` to get the right Python version
 
 ### Setup `venv`
 
@@ -19,7 +18,7 @@ First, you'll need to create a virtual environment, this differs depending on yo
 On linux/mac
 
 ```bash
-python -m venv .venv --prompt ids # (you can substitute `ids` for any name you want)
+python -m venv .venv
 ```
 
 On Windows
@@ -43,8 +42,6 @@ On linux/mac
 
 Source: https://docs.python.org/3/library/venv.html#how-venvs-work
 
-Note: Again, you'll need to activate venv _every time you want to work in the codebase_.
-
 If the above doesn't work, try these instructions for creating and activating a virtual environment:
 1. Navigate to your project directory: cd [insert file path]
 2. Create a virtual environenment: python -m venv venv
@@ -58,16 +55,37 @@ Using `pip`, install the project dependencies.
 pip install -r requirements.txt
 ```
 
-### Running CLI
+## Command-Line Usage
 
-@TODO - this section needs to be updated.
+This program utilizes `argparse` to allow users to specify various parameters directly from the command line.
 
-7. Set parameters to the main command:
-   - counties = The counties that are listed in the count CSV. Update column "scraper" in the CSV to "yes" to include the county.
-   - start_date = The first date you want to scrape for case data. Update in scraper.
-   - end_date = The last date you want to scrape for case data. Update in scraper.
-8. Run the handler.
-   - `python run python .src/orchestrator`
+**Basic Usage:**
+
+To run the program with default settings or with a subset of arguments, navigate to src, run main.py using the following format:
+
+]
+```bash
+python main.py [arguments]
+```
+
+* `--counties`: Specifies the counties to process. Multiple counties can be provided, separated by spaces. Example: `python your_script_name.py --counties "CountyA" "CountyB" "CountyC"`
+* `--start_date`: Specifies the start date for processing, in YYYY-MM-DD format. Example: `python main.py --start_date 2023-01-01`
+* `--end_date`: Specifies the end date for processing, in YYYY-MM-DD format. Example: `python main.py --end_date 2023-12-31`
+* `--court_calendar_link_text`: Specifies the court calendar link text. Example: `python main.py --court_calendar_link_text "Calendar Link"`
+* `--case_number`: Specifies the case number. Example: `python main.py --case_number "Case12345"`
+* `--case_html_path`: Specifies the path to the case HTML file. Example: `python main.py --case_html_path "/path/to/case.html"`
+* `--judicial_officers`: Specifies the judicial officers. Example: `python main.py --judicial_officers "Judge Smith, Judge Jones"`
+* `--ms_wait`: Specifies the milliseconds to wait (integer). Example: `python main.py --ms_wait 500`
+* `--parse_single_file`: A flag to indicate that a single file should be parsed. When present, the program will parse a single file. Example: `python your_script_name.py --parse_single_file`
+
+#### Combining Arguments:
+You can combine multiple arguments in a single command. For example:
+`python main.py --counties "hays" "tyler" --start_date 2023-06-01 --end_date 2023-06-30 --ms_wait 1000`
+This command will process data for "hays" and "tyler" between June 1, 2023, and June 30, 2023, with a 1000 millisecond wait between operations.
+
+#### Example with single file parsing:
+`python main.py --case_html_path "/path/to/my_case.html" --parse_single_file`
+This command parses the single file found at /path/to/my_case.html.
 
 ## Structure of Code
 
@@ -75,28 +93,8 @@ pip install -r requirements.txt
 - Handler (src/handler): This reads the CSV for the counties to be scraped and runs the following processes for each county. You can also set the start and end date of the parser here.
 
   - **Scraper** (`src/scraper`): This scrapes all of the judicial officers for each day within the period set in the handler and saves all of the HTML to data/[county name]/case_html.
-  - **Parser** (`src/parser`): This parses all of the HTML in the county-specific HTML folder to accompanying JSON files in data/[county name]/case_json.
-  - **Cleaner** (`src/cleaner`): This cleans and redacts information in in the county-specific json folder to a new folder of JSON files in data/[county name]/case_json_cleaned.
-  - **Updater** (`src/updater`): This pushed the cleaned and redacted JSON in the county-specific cleaned json folder to a container in CosmosDB where it can then be use for visualization.
+  - **Parser** (`src/parser`): This parses all of the HTML to separate rows in different tables in a postgres database.
 
-## Flowchart: Relationships Between Functions and Directories
+## Structure of Data
 
-```mermaid
-flowchart TD
-    orchestrator{"src/orchestrator (class): <br> orchestrate (function)"} --> county_db[resources/texas_county_data.csv]
-    county_db  --> |return counties where 'scrape' = 'yes'| orchestrator
-    orchestrator -->|loop through these counties <br> and run these four functions| scraper(1. src/scraper: scrape)
-    scraper --> parser(2. src/parser: parse)
-    scraper --> |create 1 HTML per case| data_html[data/county/case_html/case_id.html]
-    parser--> pre2017(src/parser/pre2017)
-    parser--> post2017(src/parser/post2017)
-    pre2017 --> cleaner[3. src/cleaner: clean]
-    post2017 --> cleaner
-    parser --> |create 1 JSON per case| data_json[data/county/case_json/case_id.json]
-    cleaner --> |look for charge in db<br>and normalize it to uccs| charge_db[resouces/umich-uccs-database.json]
-    charge_db --> cleaner
-    cleaner --> updater(4. src/updater: update)
-    cleaner --> |create 1 JSON per case| data_json_cleaned[data/county/case_json_cleaned/case_id.json]
-    updater --> |send final cleaned JSON to CosmosDB container| CosmosDB_container[CosmosDB container]
-    CosmosDB_container --> visualization{live visualization}
-```
+Data is parsed according to the schema in models.py in src/parser.

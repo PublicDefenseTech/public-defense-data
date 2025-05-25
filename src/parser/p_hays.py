@@ -11,27 +11,6 @@ from dotenv import load_dotenv
 import logging
 from datetime import datetime as dt
 
-CHARGE_SEVERITY = {
-    "First Degree Felony": 1,
-    "Second Degree Felony": 2,
-    "Third Degree Felony": 3,
-    "State Jail Felony": 4,
-    "Misdemeanor A": 5,
-    "Misdemeanor B": 6,
-}
-
-# List of motions identified as evidentiary.
-# TODO: These should be moved to a separate JSON in resources
-GOOD_MOTIONS = [
-    "Motion To Suppress",
-    "Motion to Reduce Bond",
-    "Motion to Reduce Bond Hearing",
-    "Motion for Production",
-    "Motion For Speedy Trial",
-    "Motion for Discovery",
-    "Motion In Limine",
-]
-
 
 class ParserHays:
 
@@ -39,34 +18,25 @@ class ParserHays:
         self.engine = self.create_postgres_engine()
         SQLModel.metadata.create_all(self.engine)
         self.session = Session(self.engine)
-        self.logger = self.configure_logger()
 
-        pass
-
-    def configure_logger(self):
-        # Configure the logger
-        logger = logging.getLogger(name=f"parser: pid: {os.getpid()}")
-
-        # Set up basic configuration for the logging system
-        logging.basicConfig(level=logging.INFO)
-
-        parser_log_path = os.path.join(os.path.dirname(__file__), "..", "..", "logs")
-        now = datetime.now()
-        # Format it as "DD-MM-YYYY - HH:MM"
-        formatted_date_time = now.strftime("%d-%m-%Y-%H.%M")
-        parser_log_name = formatted_date_time + "_newparser_logger_log.txt"
-
-        file_handler = logging.FileHandler(
-            os.path.join(parser_log_path, parser_log_name)
+        # Initialize the list of good motions
+        self.GOOD_MOTIONS = None
+        good_motions_path = os.path.join(
+            os.path.dirname(__file__), "..", "..", "resources", "GOOD_MOTIONS.json"
         )
-        file_handler.setLevel(logging.DEBUG)
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+        with open(good_motions_path, "r") as good_motions_json:
+            self.GOOD_MOTIONS = json.load(good_motions_json)["GOOD_MOTIONS"]
 
-        return logger
+        # Initialize the list of charge severity
+        self.CHARGE_SEVERITY = None
+        charge_severity_path = os.path.join(
+            os.path.dirname(__file__), "..", "..", "resources", "CHARGE_SEVERITY.json"
+        )
+        with open(charge_severity_path, "r") as charge_severity_json:
+            self.CHARGE_SEVERITY = json.load(charge_severity_json)["CHARGE_SEVERITY"]
+
+        # This will be passed in parse
+        self.logger = None
 
     def create_postgres_engine(self):
         # Load environment variables from .env
@@ -96,7 +66,7 @@ class ParserHays:
 
     def get_charge_severity(self, charge: str, logger) -> int:
         try:
-            for charge_name, severity in CHARGE_SEVERITY.items():
+            for charge_name, severity in self.CHARGE_SEVERITY.items():
                 if charge_name in charge:
                     return severity
             return float("inf")
@@ -147,6 +117,9 @@ class ParserHays:
                                 }
                 else:
                     logger.info(f"Unexpected type for disposition: {type(disposition)}")
+
+            if not top_charge:
+                top_charge = {"charge_name": None, "charge_level": None}
 
             return top_charge
         except Exception as e:
@@ -217,26 +190,62 @@ class ParserHays:
     ) -> Dict[str, str]:
         try:
             # logger.info(f"Parsing defendant rows")
-            return {
-                "defendant": defendant_rows[1][1],
-                "sex": defendant_rows[1][2].split(" ")[0],
-                "race": defendant_rows[1][2].split(" ")[1],
-                "date_of_birth": defendant_rows[1][3],
-                "height": defendant_rows[1][4].split(" ")[0],
-                "weight": defendant_rows[1][4].split(" ")[1],
-                "defendant_address": defendant_rows[2][0] + " " + defendant_rows[2][1],
-                "sid": defendant_rows[2][3],
-            }
+
+            result = {}  # Initialize an empty dictionary
+
+            try:
+                result["name"] = defendant_rows[1][1]
+            except (IndexError, TypeError):
+                result["name"] = None
+
+            try:
+                result["sex"] = defendant_rows[1][2].split(" ")[0]
+            except (IndexError, TypeError, AttributeError):
+                result["sex"] = None
+
+            try:
+                result["race"] = defendant_rows[1][2].split(" ")[1]
+            except (IndexError, TypeError, AttributeError):
+                result["race"] = None
+
+            try:
+                result["date_of_birth"] = defendant_rows[1][3]
+            except (IndexError, TypeError):
+                result["date_of_birth"] = None
+
+            try:
+                result["height"] = defendant_rows[1][4].split(" ")[0]
+
+            except (IndexError, TypeError, ValueError):
+                result["height"] = None
+
+            try:
+                result["weight"] = defendant_rows[1][4].split(" ")[1]
+            except (IndexError, TypeError, AttributeError):
+                result["weight"] = None
+
+            try:
+                result["address"] = defendant_rows[2][0] + " " + defendant_rows[2][1]
+            except (IndexError, TypeError):
+                result["address"] = None
+
+            try:
+                result["sid"] = defendant_rows[2][3]
+            except (IndexError, TypeError):
+                result["sid"] = None
+
+            return result
+
         except Exception as e:
-            logger.info(f"Error parsing defendant rows: {e}")
+            logger.warning(f"Error parsing defendant rows: {e}")
             return {
-                "defendant": None,
+                "name": None,
                 "sex": None,
                 "race": None,
                 "date_of_birth": None,
                 "height": None,
                 "weight": None,
-                "defendant_address": None,
+                "address": None,
                 "sid": None,
             }
 
@@ -246,25 +255,39 @@ class ParserHays:
         try:
             # logger.info(f"Parsing defendant rows")
             return {
-                "defense_attorney": defense_attorney_rows[1][5],
-                "appointed_or_retained": defense_attorney_rows[1][6],
-                "defense_attorney_phone_number": defense_attorney_rows[1][7],
+                "name": defense_attorney_rows[1][5],
+                "appointed_retained": defense_attorney_rows[1][6],
+                "phone": defense_attorney_rows[1][7],
+                "attorney_hash": xxhash.xxh64(
+                    str(defense_attorney_rows[1][5] + defense_attorney_rows[1][7])
+                ).hexdigest(),
             }
         except Exception as e:
-            logger.info(f"Error parsing defendant rows: {e}")
+            logger.warning(f"Error parsing defense_attorney rows: {e}")
             return {
-                "defense_attorney": None,
-                "appointed_or_retained": None,
-                "defense_attorney_phone_number": None,
+                "name": None,
+                "appointed_retained": None,
+                "phone": None,
+                "attorney_hash": None,
             }
 
     def parse_state_rows(self, state_rows: List[List[str]], logger) -> dict:
         try:
-            prosecuting_attorney_dict = {
-                "prosecuting_attorney": state_rows[3][2],
-                "prosecuting_attorney_phone": state_rows[3][3],
-            }
-            return prosecuting_attorney_dict
+
+            result = {}  # Initialize an empty dictionary
+
+            try:
+                result["prosecuting_attorney"] = state_rows[3][2]
+            except (IndexError, TypeError):
+                result["prosecuting_attorney"] = None
+
+            try:
+                result["prosecuting_attorney_phone"] = state_rows[3][3]
+            except (IndexError, TypeError):
+                result["prosecuting_attorney_phone"] = None
+
+            return result
+
         except Exception as e:
             logger.info(f"Error parsing state rows: {e}")
             prosecuting_attorney_dict = {
@@ -474,15 +497,13 @@ class ParserHays:
             logger.info(f"Error getting disposition information: {e}")
             return dispositions
 
-    def add_version(self, case_metadata: CaseMetadata) -> int:
+    def add_version(self, court_case_number, html_hash) -> int:
         """
         Determines the version number for a CaseMetadata entry based on existing data.
         """
 
-        html_hash = (
-            case_metadata.html_hash
-        )  # get the html hash from the case metadata instance.
-        cause_number = case_metadata.court_case_number
+        html_hash = html_hash  # get the html hash from the case metadata instance.
+        court_case_number = court_case_number
 
         # 1. Duplicate HTML Hash Check
         existing_case_metadata = self.session.exec(
@@ -497,13 +518,15 @@ class ParserHays:
 
         # 2. New Case Check
         existing_case_metadatas = self.session.exec(
-            select(CaseMetadata).where(CaseMetadata.court_case_number == cause_number)
+            select(CaseMetadata).where(
+                CaseMetadata.court_case_number == court_case_number
+            )
         ).all()
 
         if not existing_case_metadatas:
             version = 1
             self.logger.info(
-                f"Version: New Case. Adding. No case with matching cause number exists: {cause_number}"
+                f"Version: New Case. Adding. No case with matching cause number exists: {court_case_number}"
             )
             return version
 
@@ -518,7 +541,7 @@ class ParserHays:
             else:
                 version = 1  # if there are no versions, set to one.
             self.logger.info(
-                f"Version: Updated Case. Adding. {len(existing_case_metadatas)} cases with matching cause number exists: {cause_number}"
+                f"Version: Updated Case. Adding. {len(existing_case_metadatas)} cases with matching cause number exists: {court_case_number}"
             )
             return version
 
@@ -540,11 +563,15 @@ class ParserHays:
     def parser_hays(
         self,
         county: str,
-        odyssey_id: str,
+        odyssey_id: str | None,
         case_number,
         logger,
         case_soup: BeautifulSoup,
     ) -> Dict[str, Dict]:
+
+        # Set the passed logger to the class
+        self.logger = logger
+
         try:
             with self.session:
 
@@ -555,6 +582,18 @@ class ParserHays:
                 case_metadata_data = self.get_case_metadata(
                     county, odyssey_id, case_soup, logger
                 )
+
+                # Check the version to see if we should continue
+                html_hash = self.hash_html(root_tables)
+                version = self.add_version(
+                    case_metadata_data["court_case_number"],
+                    html_hash,
+                )
+                if version == -1:
+                    logger.info(
+                        f"Stopping parse for {case_metadata_data['court_case_number']}: duplicate hash in database: {html_hash}"
+                    )
+                    # return
 
                 # Create CaseMetadata
 
@@ -573,11 +612,8 @@ class ParserHays:
                     case_type=None,
                     date_filed=None,
                     location=None,
-                    version=None,
+                    version=version,
                 )
-
-                # Find the correct version number per this cause number
-                case_metadata.version = self.add_version(CaseMetadata)
 
                 self.session.add(case_metadata)
                 self.session.commit()
@@ -758,7 +794,7 @@ class ParserHays:
                         )
                         if case_metadata_row:
                             case_metadata_row.good_motions = self.find_good_motions(
-                                other_event_rows, GOOD_MOTIONS
+                                other_event_rows, self.GOOD_MOTIONS
                             )
                             case_metadata_row.has_evidence_of_representation = (
                                 len(case_metadata_row.good_motions) > 0
@@ -789,4 +825,5 @@ class ParserHays:
             logger.error(f"Unexpected error while parsing Hays case: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
             self.session.rollback()
+            raise
             return {"status": "error", "error": str(e)}

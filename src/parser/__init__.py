@@ -46,10 +46,8 @@ class Parser:
         return logger
 
     def get_class_and_method(
-        self, logger, county: str, test=False
+        self, logger, county: str
     ) -> Tuple[Optional[object], Optional[callable]]:
-        if test:
-            logger.info(f"Test mode is on")
         # Construct the module, class, and method names
         module_name = f"p_{county}"  # ex: 'p_hays'
         class_name = f"Parser{county.capitalize()}"  # ex: 'ParserHays'
@@ -136,6 +134,7 @@ class Parser:
         parse_single_file: bool = False,
     ) -> List[str]:
         # logger.info(f"get_list_of_html function called\n")
+
         try:
             if parse_single_file:
                 logger.info(f"parse_single_file is True\n")
@@ -203,10 +202,9 @@ class Parser:
     def parse(
         self,
         county: str,
-        odyssey_id: str,
         case_number: str,
         parse_single_file: bool = False,
-        test=False,
+        odyssey_id: str | None = "123456",
     ) -> None:
         logger = self.configure_logger()
 
@@ -216,7 +214,7 @@ class Parser:
         county = county.lower()
         try:
             # get input and output directories and make json dir if not present
-            case_html_path, case_json_path = self.get_directories(county, logger, test)
+            case_html_path, case_json_path = self.get_directories(county, logger)
 
             # start
             START_TIME_PARSER = time()
@@ -224,7 +222,11 @@ class Parser:
 
             # Get a list of the HTML files that it needs to parse.
             case_html_list = self.get_list_of_html(
-                case_html_path, odyssey_id, county, logger, parse_single_file
+                case_html_path=case_html_path,
+                odyssey_id=odyssey_id,
+                county=county,
+                logger=logger,
+                parse_single_file=parse_single_file,
             )
             logger.info(
                 f"parser: Starting for loop to parse {len(case_html_list)} cases"
@@ -244,7 +246,7 @@ class Parser:
 
                     # get the correct class and method for the given county
                     parser_instance, parser_function = self.get_class_and_method(
-                        county=county, logger=logger, test=test
+                        county=county, logger=logger
                     )
 
                     if parser_instance is not None and parser_function is not None:

@@ -1,0 +1,10 @@
+{
+    "CHARGE_SEVERITY": {
+        "First Degree Felony": 1,
+        "Second Degree Felony": 2,
+        "Third Degree Felony": 3,
+        "State Jail Felony": 4,
+        "Misdemeanor A": 5,
+        "Misdemeanor B": 6
+    }
+}
