@@ -169,31 +169,51 @@ class HaysCountyScraper:
 
 if __name__ == "__main__":
     scraper = HaysCountyScraper()
-    case_number_to_search = "18-1415CR-2"
-
-    print(f"Searching for case: {case_number_to_search}")
-    results_soup = scraper.search_case(case_number_to_search)
-    
-    cases_found = scraper.parse_search_results(results_soup)
-
-    if cases_found:
-        print(f"Found {len(cases_found)} case(s) in search results.")
-        for case_info in cases_found:
-            print(f"Search Result: {case_info}")
-            
-            case_detail_link = case_info[0].get('href') if isinstance(case_info[0], dict) else None
-            
-            if case_detail_link:
-                print(f"\nFetching detail page for: {case_detail_link}")
-                case_html = scraper.get_case_detail_page(case_detail_link)
-                print(case_html)
-            else:
-                print("No detail link found for this search result.")
+    year = 20
+    court = 1
+    case_id = "0001"
+    no_case_counter = 0
 
 
-            with open(
-                os.path.join(scraper.case_html_path, f"{case_number_to_search}.html"), "w"
-            ) as file_handle:
-                file_handle.write(case_html)            
-    else:
-        print(f"No search results found for case number: {case_number_to_search}")
+    while True:
+        time.sleep(1)
+        case_number_to_search = str(year) + "-" + case_id + "CR" + "-" + str(court)
+        #case_number_to_search = "18-1415CR-2"
+
+        print(f"Searching for case: {case_number_to_search}")
+        results_soup = scraper.search_case(case_number_to_search)
+        cases_found = scraper.parse_search_results(results_soup)
+
+        if cases_found:
+            no_case_counter = 0
+            print(f"Found {len(cases_found)} case(s) in search results.")
+            for case_info in cases_found:
+                #print(f"Search Result: {case_info}")
+                
+                case_detail_link = case_info[0].get('href') if isinstance(case_info[0], dict) else None
+                
+                if case_detail_link:
+                    print(f"\nFetching detail page for: {case_detail_link}")
+                    case_html = scraper.get_case_detail_page(case_detail_link)
+                    #print(case_html)
+                else:
+                    print("No detail link found for this search result.")
+
+                with open(
+                    os.path.join(scraper.case_html_path, f"{case_number_to_search}.html"), "w"
+                ) as file_handle:
+                    file_handle.write(case_html)
+
+            court += 1
+            if court == 4:
+                court = 1
+                case_id = int(case_id) + 1
+                case_id = f'{case_id:04d}'                
+        else:
+            no_case_counter += 1
+            court += 1
+            if court == 4:
+                court = 1
+                case_id = int(case_id) + 1
+                case_id = f'{case_id:04d}'                
+            print(f"No search results found for case number: {case_number_to_search}")
